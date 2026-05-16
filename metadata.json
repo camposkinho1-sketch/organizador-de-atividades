@@ -1,0 +1,6 @@
+{
+  "name": "Guardião da Segurança do Trabalho",
+  "description": "Um assistente inteligente que gerencia tarefas e simulador de Google Tasks usando o Google Gemini.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
