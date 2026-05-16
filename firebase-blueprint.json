@@ -1,0 +1,35 @@
+{
+  "entities": {
+    "UserData": {
+      "title": "UserData",
+      "description": "User configuration, tasks, schedule, and grades",
+      "type": "object",
+      "properties": {
+        "tasks_data": {
+          "type": "array",
+          "description": "Tasks data array stored as JSON",
+          "items": { "type": "object" }
+        },
+        "schedule_data": {
+          "type": "array",
+          "description": "Schedule data array stored as JSON",
+          "items": { "type": "object" }
+        },
+        "grades_data": {
+          "type": "object",
+          "description": "Grades data stored as JSON"
+        },
+        "updated_at": {
+          "type": "object",
+          "description": "Firestore server timestamp"
+        }
+      }
+    }
+  },
+  "firestore": {
+    "user_data/{userId}": {
+      "schema": "UserData",
+      "description": "User specific data"
+    }
+  }
+}

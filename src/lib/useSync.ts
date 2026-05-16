@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
-import { supabase } from './supabase';
+import { auth, db } from './firebase';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 export function useSyncState<T>(key: string, initialValue: T, column: string) {
   const [value, setValue] = useState<T>(() => {
@@ -7,59 +9,59 @@ export function useSyncState<T>(key: string, initialValue: T, column: string) {
     return saved ? JSON.parse(saved) : initialValue;
   });
   
-  const [sessionUser, setSessionUser] = useState<any>(null);
+  const [sessionUser, setSessionUser] = useState<User | null>(null);
 
   useEffect(() => {
-    if (!supabase) return;
-    
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSessionUser(session?.user || null);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
-      setSessionUser(session?.user || null);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setSessionUser(user);
     });
     
-    return () => subscription.unsubscribe();
+    return () => unsubscribe();
   }, []);
 
-  // Fetch initial data from Supabase
+  // Fetch initial data from Firestore
   useEffect(() => {
-    if (!supabase || !sessionUser) return;
+    if (!sessionUser) return;
 
     const fetchConfig = async () => {
-      const { data, error } = await supabase
-        .from('user_data')
-        .select('*')
-        .eq('user_id', sessionUser.id)
-        .single();
-      
-      if (!error && data && data[column]) {
-        setValue(data[column]);
-        localStorage.setItem(key, JSON.stringify(data[column]));
+      try {
+        const docRef = doc(db, 'user_data', sessionUser.uid);
+        const docSnap = await getDoc(docRef);
+        
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data && data[column]) {
+            setValue(data[column]);
+            localStorage.setItem(key, JSON.stringify(data[column]));
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching data:", error);
       }
     };
     
     fetchConfig();
   }, [sessionUser, column, key]); // execute only once when user loads
 
-  // Wrap the setter to also update Supabase and localStorage
+  // Wrap the setter to also update Firestore and localStorage
   const setSyncedValue = (newValue: T | ((val: T) => T)) => {
     const computedValue = newValue instanceof Function ? newValue(value) : newValue;
     setValue(computedValue);
     localStorage.setItem(key, JSON.stringify(computedValue));
 
-    if (supabase && sessionUser) {
+    if (sessionUser) {
       const payload = {
-        user_id: sessionUser.id,
         [column]: computedValue,
-        updated_at: new Date().toISOString()
+        updated_at: serverTimestamp()
       };
       
       // Upsert the user profile data
-      supabase.from('user_data').upsert(payload, { onConflict: 'user_id' }).then();
+      setDoc(doc(db, 'user_data', sessionUser.uid), payload, { merge: true }).catch(err => {
+        console.error("Error saving data:", err);
+      });
     }
   };
 
   return [value, setSyncedValue] as const;
 }
+
