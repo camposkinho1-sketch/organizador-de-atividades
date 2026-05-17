@@ -1,24 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { GoogleGenAI, Type, FunctionDeclaration } from '@google/genai';
-import { Send, CheckCircle, Clock, Calendar as CalendarIcon, User, AlertCircle, Settings, GraduationCap } from 'lucide-react';
+import { Send, CheckCircle, Clock, Calendar as CalendarIcon, User, Bot, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ScheduleManager, DaySchedule, defaultSchedule } from './components/ScheduleManager';
-import { GradesManager } from './components/GradesManager';
-import { AppLogo } from './components/Logo';
-import { GiLion } from 'react-icons/gi';
-import { useSyncState } from './lib/useSync';
-
-import { BoletimIcon } from './components/BoletimIcon';
 
 // --- System Instructions ---
-const getSystemInstruction = (schedule: DaySchedule[]) => {
+const getSystemInstruction = () => {
   const now = new Date();
   const days = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
   const currentDay = days[now.getDay()];
   const currentDate = now.toLocaleDateString('pt-BR');
   const currentTime = now.toLocaleTimeString('pt-BR');
-
-  const scheduleStr = schedule.map(day => `${day.short}: ${day.classes.length > 0 ? day.classes.join(', ') : 'Sem aulas'}`).join('\n');
 
   return `Você é o Guardião da Segurança do Trabalho, um assistente acadêmico de alta performance e gestor de produtividade. Seu objetivo é organizar a rotina do usuário, garantindo que ele nunca perca uma aula ou o prazo de uma atividade. Você deve ser proativo, organizado e utilizar as ferramentas do Google Workspace (simuladas aqui por suas ferramentas integradas) para suporte total.
 
@@ -28,7 +19,11 @@ Hoje é ${currentDay}, ${currentDate}. O horário atual é ${currentTime}. Use i
 
 1. Base de Conhecimento (Grade Horária)
 Utilize esta grade como base padrão para o planejamento:
-${scheduleStr}
+Seg: Seg. Industrial e Ocupacional (Jhonatan), Biologia (Mª Sueli), Prev. e Combate a Incêndio (Jhonatan).
+Ter: Saúde do Trabalhador e Ergonomia (Andrea), Primeiros Socorros (Jhonatan), PPOS (Jhonatan), Arte (Gildasia).
+Qua: Química (Sérgio), História (Cristiane), Geografia (Marli), Legislação e Normas (Rosinete).
+Qui: Filosofia (Maurício), Ed. Física (Raquel), Segurança do Trabalho (Fabricio), Inglês (Salomão), Sociologia (Cristiane).
+Sex: Matemática (Evanginei), Língua Portuguesa (Adriana), Física (Chrystian).
 
 2. Flexibilidade e Mudanças de Horário
 Aviso de Mudança: Sempre informe que os horários podem mudar.
@@ -96,10 +91,7 @@ export default function App() {
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [tasks, setTasks] = useSyncState<Task[]>('guardiao_tasks', [], 'tasks_data');
-  const [showSchedule, setShowSchedule] = useState(false);
-  const [showGrades, setShowGrades] = useState(false);
-  const [schedule, setSchedule] = useSyncState<DaySchedule[]>('guardiao_schedule', defaultSchedule, 'schedule_data');
+  const [tasks, setTasks] = useState<Task[]>([]);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // We explicitly type the chat instance
@@ -110,12 +102,12 @@ export default function App() {
     chatRef.current = ai.chats.create({
       model: "gemini-3-flash-preview",
       config: {
-        systemInstruction: getSystemInstruction(schedule),
+        systemInstruction: getSystemInstruction(),
         tools: [{ functionDeclarations: [createTaskTool] }],
         temperature: 0.2, // Low temperature for more reliable formatting and rules
       }
     });
-  }, [schedule]);
+  }, []);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -149,23 +141,20 @@ export default function App() {
       
       // Check if function was called
       if (response.functionCalls && response.functionCalls.length > 0) {
-        let functionResponseParts: any[] = [];
+        let allFunctionResponses = [];
         
         for (const call of response.functionCalls) {
           if (call.name === 'create_task') {
             const result = handleCreateTask(call.args);
-            functionResponseParts.push({
-              functionResponse: {
-                name: call.name,
-                response: result,
-                id: call.id
-              }
+            allFunctionResponses.push({
+              name: call.name,
+              response: result
             });
           }
         }
         
         // Send function results back to the model to get the final text response
-        response = await chatRef.current.sendMessage({ message: functionResponseParts });
+        response = await chatRef.current.sendMessage(allFunctionResponses);
       }
       
       if (response.text) {
@@ -258,32 +247,16 @@ export default function App() {
       <div className="flex-1 flex flex-col bg-slate-50 relative">
         <header className="px-6 py-4 bg-white border-b border-slate-200 shadow-sm flex items-center justify-between sticky top-0 z-10">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 flex items-center justify-center relative">
-              <AppLogo className="w-12 h-12" />
+            <div className="bg-blue-600 p-2 rounded-lg">
+              <Bot className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="font-bold text-slate-900 text-lg sm:text-base md:text-lg">Guardião da Segurança do Trabalho</h1>
+              <h1 className="font-bold text-slate-900 text-lg">Guardião da Segurança do Trabalho</h1>
               <div className="flex items-center gap-1.5 text-xs font-medium text-green-600">
                 <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
                 Online e monitorando
               </div>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button 
-              onClick={() => setShowGrades(true)}
-              className="flex items-center gap-2 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-transparent rounded-lg transition-colors text-sm font-medium"
-            >
-              <BoletimIcon className="w-5 h-5 text-blue-600 font-bold" />
-              <span className="hidden sm:inline">Boletim</span>
-            </button>
-            <button 
-              onClick={() => setShowSchedule(true)}
-              className="flex items-center gap-2 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors text-sm font-medium"
-            >
-              <Settings className="w-4 h-4" />
-              <span className="hidden sm:inline">Editar Grade</span>
-            </button>
           </div>
         </header>
 
@@ -305,9 +278,9 @@ export default function App() {
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
                   message.role === 'user' 
                     ? 'bg-slate-200 text-slate-600' 
-                    : 'bg-amber-100 text-amber-700 border border-amber-300'
+                    : 'bg-blue-100 text-blue-700 border border-blue-200'
                 }`}>
-                  {message.role === 'user' ? <User className="w-5 h-5" /> : <GiLion className="w-6 h-6" />}
+                  {message.role === 'user' ? <User className="w-5 h-5" /> : <Bot className="w-6 h-6" />}
                 </div>
                 
                 <div className={`max-w-[85%] md:max-w-[75%] rounded-2xl p-4 shadow-sm ${
@@ -334,13 +307,13 @@ export default function App() {
             
             {isLoading && (
               <div className="flex gap-4 flex-row">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-amber-100 text-amber-700 border border-amber-300">
-                  <GiLion className="w-6 h-6" />
+                <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-blue-100 text-blue-700 border border-blue-200">
+                  <Bot className="w-6 h-6" />
                 </div>
                 <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-sm p-4 shadow-sm flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-amber-500 animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <div className="w-2 h-2 rounded-full bg-amber-500 animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <div className="w-2 h-2 rounded-full bg-amber-500 animate-bounce" style={{ animationDelay: '300ms' }} />
+                  <div className="w-2 h-2 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <div className="w-2 h-2 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <div className="w-2 h-2 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: '300ms' }} />
                 </div>
               </div>
             )}
@@ -373,21 +346,6 @@ export default function App() {
         </div>
       </div>
       
-      <AnimatePresence>
-        {showSchedule && (
-          <ScheduleManager 
-            schedule={schedule} 
-            setSchedule={setSchedule} 
-            onClose={() => setShowSchedule(false)} 
-          />
-        )}
-        {showGrades && (
-          <GradesManager 
-            schedule={schedule} 
-            onClose={() => setShowGrades(false)} 
-          />
-        )}
-      </AnimatePresence>
     </div>
   );
 }
