@@ -1,42 +1,41 @@
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
-import { GoogleGenAI, Type, FunctionDeclaration } from "@google/genai";
+import OpenAI from "openai";
 
 const app = express();
 const PORT = 3000;
 
 app.use(express.json());
 
-const ai = new GoogleGenAI({ 
-  apiKey: process.env.GEMINI_API_KEY,
-  httpOptions: {
-    headers: {
-      'User-Agent': 'aistudio-build',
-    }
-  }
+const openai = new OpenAI({
+  baseURL: "https://openrouter.ai/api/v1",
+  apiKey: process.env.OPENROUTER_API_KEY || "dummy", 
 });
 
-const createTaskTool: FunctionDeclaration = {
-  name: "create_task",
-  description: "Cria uma nova tarefa no Google Tasks para o usuário.",
-  parameters: {
-    type: Type.OBJECT,
-    properties: {
-      title: {
-        type: Type.STRING,
-        description: "Título da tarefa, no formato '[MATÉRIA] - [NOME DA ATIVIDADE]'",
+const createTaskTool = {
+  type: "function" as const,
+  function: {
+    name: "create_task",
+    description: "Cria uma nova tarefa no Google Tasks para o usuário.",
+    parameters: {
+      type: "object",
+      properties: {
+        title: {
+          type: "string",
+          description: "Título da tarefa, no formato '[MATÉRIA] - [NOME DA ATIVIDADE]'",
+        },
+        date: {
+          type: "string",
+          description: "Data da tarefa no formato YYYY-MM-DD",
+        },
+        time: {
+          type: "string",
+          description: "Horário da tarefa no formato HH:MM (ex: 20:00 ou 13:00)",
+        },
       },
-      date: {
-        type: Type.STRING,
-        description: "Data da tarefa no formato YYYY-MM-DD",
-      },
-      time: {
-        type: Type.STRING,
-        description: "Horário da tarefa no formato HH:MM (ex: 20:00 ou 13:00)",
-      },
+      required: ["title", "date", "time"],
     },
-    required: ["title", "date", "time"],
   },
 };
 
@@ -79,26 +78,94 @@ app.post("/api/chat", async (req, res) => {
   try {
     const { message, history, schedule } = req.body;
 
-    if (!process.env.GEMINI_API_KEY) {
-       return res.status(500).json({ error: "GEMINI_API_KEY is not configured on the server." });
+    if (!process.env.OPENROUTER_API_KEY) {
+       return res.status(500).json({ error: "OPENROUTER_API_KEY is not configured on the server." });
     }
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.1-pro-preview",
-      contents: [...history, message],
-      config: {
-        systemInstruction: getSystemInstruction(schedule),
-        tools: [{ functionDeclarations: [createTaskTool] }],
-        temperature: 0.2,
+    const openaiMessages: any[] = [
+      {
+        role: "system",
+        content: getSystemInstruction(schedule),
       }
+    ];
+
+    // Convert history
+    if (history && Array.isArray(history)) {
+      for (const msg of history) {
+        if (msg.role === 'model') {
+          if (msg.parts && msg.parts[0].functionCall) {
+             const fc = msg.parts[0].functionCall;
+             openaiMessages.push({
+               role: "assistant",
+               content: null,
+               tool_calls: [{
+                 id: fc.id || 'call_1',
+                 type: "function",
+                 function: {
+                   name: fc.name,
+                   arguments: JSON.stringify(fc.args)
+                 }
+               }]
+             });
+          } else {
+             openaiMessages.push({
+               role: "assistant",
+               content: msg.parts[0].text
+             });
+          }
+        } else {
+          openaiMessages.push({
+            role: "user",
+            content: msg.parts[0].text
+          });
+        }
+      }
+    }
+
+    // Now handle the current message
+    if (Array.isArray(message)) {
+      // It's a function response
+      for (const part of message) {
+        if (part.functionResponse) {
+          openaiMessages.push({
+            role: "tool",
+            tool_call_id: part.functionResponse.id || 'call_1',
+            name: part.functionResponse.name,
+            content: JSON.stringify(part.functionResponse.response)
+          });
+        }
+      }
+    } else {
+      // It's a regular user message
+      openaiMessages.push({
+        role: "user",
+        content: message
+      });
+    }
+
+    const response = await openai.chat.completions.create({
+      model: "google/gemini-3.1-flash-lite",
+      messages: openaiMessages,
+      tools: [createTaskTool],
+      temperature: 0.2,
+      max_tokens: 4096,
     });
 
-    res.json({
-        text: response.text,
-        functionCalls: response.functionCalls,
-    });
+    const choice = response.choices[0];
+    
+    if (choice.message.tool_calls && choice.message.tool_calls.length > 0) {
+      // Map to Gemini format for frontend
+      const functionCalls = choice.message.tool_calls.map((tc: any) => ({
+        id: tc.id,
+        name: tc.function.name,
+        args: JSON.parse(tc.function.arguments)
+      }));
+      res.json({ functionCalls });
+    } else {
+      res.json({ text: choice.message.content });
+    }
   } catch (error: any) {
-    console.error("Gemini API Error:", error);
+    console.error("OpenRouter API Error:", error);
     res.status(500).json({ error: error.message || "Failed to generate content" });
   }
 });
