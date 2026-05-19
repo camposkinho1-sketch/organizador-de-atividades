@@ -1,51 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { GoogleGenAI, Type, FunctionDeclaration } from '@google/genai';
-import { Send, CheckCircle, Clock, Calendar as CalendarIcon, User, Bot, AlertCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { CheckCircle, Calendar as CalendarIcon, Clock, Settings, Plus, LayoutDashboard, Calendar, ClipboardList, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-
-// --- System Instructions ---
-const getSystemInstruction = () => {
-  const now = new Date();
-  const days = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
-  const currentDay = days[now.getDay()];
-  const currentDate = now.toLocaleDateString('pt-BR');
-  const currentTime = now.toLocaleTimeString('pt-BR');
-
-  return `Você é o Guardião da Segurança do Trabalho, um assistente acadêmico de alta performance e gestor de produtividade. Seu objetivo é organizar a rotina do usuário, garantindo que ele nunca perca uma aula ou o prazo de uma atividade. Você deve ser proativo, organizado e utilizar as ferramentas do Google Workspace (simuladas aqui por suas ferramentas integradas) para suporte total.
-
-[CONTEXTO TEMPORAL ATUAL]
-Hoje é ${currentDay}, ${currentDate}. O horário atual é ${currentTime}. Use isso para calcular "próximas aulas" corretamente.
-[/CONTEXTO TEMPORAL]
-
-1. Base de Conhecimento (Grade Horária)
-Utilize esta grade como base padrão para o planejamento:
-Seg: Seg. Industrial e Ocupacional (Jhonatan), Biologia (Mª Sueli), Prev. e Combate a Incêndio (Jhonatan).
-Ter: Saúde do Trabalhador e Ergonomia (Andrea), Primeiros Socorros (Jhonatan), PPOS (Jhonatan), Arte (Gildasia).
-Qua: Química (Sérgio), História (Cristiane), Geografia (Marli), Legislação e Normas (Rosinete).
-Qui: Filosofia (Maurício), Ed. Física (Raquel), Segurança do Trabalho (Fabricio), Inglês (Salomão), Sociologia (Cristiane).
-Sex: Matemática (Evanginei), Língua Portuguesa (Adriana), Física (Chrystian).
-
-2. Flexibilidade e Mudanças de Horário
-Aviso de Mudança: Sempre informe que os horários podem mudar.
-Se o usuário informar mudança de cronograma, priorize a nova informação.
-
-3. Protocolo de Atividades (Ação Automática com Horários de Entrega)
-Sempre que o usuário mencionar uma atividade e uma matéria, você deve executar este fluxo obrigatoriamente:
-- Identificar a Próxima Aula: Veja na grade qual é o próximo dia que essa matéria acontece, a partir de hoje.
-- Cálculo da Data: Defina o prazo para 1 dia antes dessa aula.
-- Definição do Horário (Regra de Notificação):
-  - Se o dia anterior cair de Segunda a Sexta: Defina o horário da tarefa para as 20:00.
-  - Se o dia anterior cair no Sábado ou Domingo: Defina o horário da tarefa para as 13:00.
-- CRIAR TAREFA: VOCÊ DEVE OBRIGATORIAMENTE CHAMAR A FUNÇÃO \`create_task\` com o título "[MATÉRIA] - [NOME DA ATIVIDADE]" e data/hora calculados.
-- Confirmação: Informe ao usuário: "Tarefa salva! Como sua próxima aula de [Matéria] é na [Dia], defini o lembrete no seu Tasks para [Data] às [Horário]."`;
-};
-
-// --- Types ---
-type Message = {
-  id: string;
-  role: 'user' | 'model';
-  content: string;
-};
+import { ScheduleManager, DaySchedule, defaultSchedule } from './components/ScheduleManager';
+import { GradesManager } from './components/GradesManager';
+import { AppLogo } from './components/Logo';
+import { useSyncState } from './lib/useSync';
+import { BoletimIcon } from './components/BoletimIcon';
 
 type Task = {
   id: string;
@@ -55,122 +15,15 @@ type Task = {
   status: 'pending' | 'completed';
 };
 
-// --- GenAI Setup ---
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
-const createTaskTool: FunctionDeclaration = {
-  name: "create_task",
-  description: "Cria uma nova tarefa no Google Tasks para o usuário.",
-  parameters: {
-    type: Type.OBJECT,
-    properties: {
-      title: {
-        type: Type.STRING,
-        description: "Título da tarefa, no formato '[MATÉRIA] - [NOME DA ATIVIDADE]'",
-      },
-      date: {
-        type: Type.STRING,
-        description: "Data da tarefa no formato YYYY-MM-DD",
-      },
-      time: {
-        type: Type.STRING,
-        description: "Horário da tarefa no formato HH:MM (ex: 20:00 ou 13:00)",
-      },
-    },
-    required: ["title", "date", "time"],
-  },
-};
-
 export default function App() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 'welcome',
-      role: 'model',
-      content: 'Olá! Eu sou o **Guardião da Segurança do Trabalho**, seu assistente acadêmico de alta performance. Posso te ajudar a organizar seus trabalhos e garantir que você nunca perca um prazo. Qual é a sua próxima atividade?'
-    }
-  ]);
-  const [input, setInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const chatEndRef = useRef<HTMLDivElement>(null);
-
-  // We explicitly type the chat instance
-  const chatRef = useRef<any>(null);
-
-  useEffect(() => {
-    // Initialize Chat
-    chatRef.current = ai.chats.create({
-      model: "gemini-3-flash-preview",
-      config: {
-        systemInstruction: getSystemInstruction(),
-        tools: [{ functionDeclarations: [createTaskTool] }],
-        temperature: 0.2, // Low temperature for more reliable formatting and rules
-      }
-    });
-  }, []);
-
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  const handleCreateTask = (args: any) => {
-    const newTask: Task = {
-      id: Math.random().toString(36).substring(7),
-      title: args.title,
-      date: args.date,
-      time: args.time,
-      status: 'pending'
-    };
-    setTasks(prev => [...prev, newTask]);
-    return { success: true, message: `Tarefa '${args.title}' agendada para ${args.date} às ${args.time}` };
-  };
-
-  const sendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || isLoading) return;
-
-    const userMsg = input.trim();
-    setInput('');
-    setMessages(prev => [...prev, { id: Date.now().toString(), role: 'user', content: userMsg }]);
-    setIsLoading(true);
-
-    try {
-      if (!chatRef.current) return;
-      
-      let response = await chatRef.current.sendMessage({ message: userMsg });
-      
-      // Check if function was called
-      if (response.functionCalls && response.functionCalls.length > 0) {
-        let allFunctionResponses = [];
-        
-        for (const call of response.functionCalls) {
-          if (call.name === 'create_task') {
-            const result = handleCreateTask(call.args);
-            allFunctionResponses.push({
-              name: call.name,
-              response: result
-            });
-          }
-        }
-        
-        // Send function results back to the model to get the final text response
-        response = await chatRef.current.sendMessage(allFunctionResponses);
-      }
-      
-      if (response.text) {
-        setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', content: response.text! }]);
-      }
-    } catch (error) {
-      console.error("Error communicating with Gemini:", error);
-      setMessages(prev => [...prev, { 
-        id: Date.now().toString(), 
-        role: 'model', 
-        content: 'Desculpe, ocorreu um erro de conexão. Tente novamente.' 
-      }]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const [tasks, setTasks] = useSyncState<Task[]>('guardiao_tasks', [], 'tasks_data');
+  const [schedule, setSchedule] = useSyncState<DaySchedule[]>('guardiao_schedule', defaultSchedule, 'schedule_data');
+  const [showSchedule, setShowSchedule] = useState(false);
+  const [showGrades, setShowGrades] = useState(false);
+  
+  const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [newTaskDate, setNewTaskDate] = useState('');
+  const [newTaskTime, setNewTaskTime] = useState('');
 
   const toggleTaskCompletion = (taskId: string) => {
     setTasks(prev => prev.map(t => 
@@ -178,26 +31,80 @@ export default function App() {
     ));
   };
 
+  const handleAddTask = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTaskTitle.trim()) return;
+
+    const newTask: Task = {
+      id: Math.random().toString(36).substring(7),
+      title: newTaskTitle,
+      date: newTaskDate || new Date().toISOString().split('T')[0],
+      time: newTaskTime || '12:00',
+      status: 'pending'
+    };
+
+    setTasks(prev => [...prev, newTask]);
+    setNewTaskTitle('');
+    setNewTaskDate('');
+    setNewTaskTime('');
+  };
+
+  const deleteTask = (taskId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setTasks(prev => prev.filter(t => t.id !== taskId));
+  };
+
   return (
     <div className="flex h-screen bg-slate-50 text-slate-900 font-sans overflow-hidden">
       
-      {/* Sidebar: Simulated Google Tasks */}
+      {/* Sidebar: Tasks */}
       <div className="w-80 bg-white border-r border-slate-200 shadow-sm flex flex-col z-10 hidden md:flex">
-        <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-blue-50/50">
-          <div>
-            <h2 className="text-xl font-bold text-blue-900 flex items-center gap-2">
-              <CheckCircle className="text-blue-600 w-6 h-6" />
-              Suas Tarefas
-            </h2>
-            <p className="text-sm text-blue-600/80 mt-1">Sincronizado via Guardião</p>
-          </div>
+        <div className="p-6 border-b border-slate-100 bg-blue-50/50">
+          <h2 className="text-xl font-bold text-blue-900 flex items-center gap-2">
+            <CheckCircle className="text-blue-600 w-6 h-6" />
+            Minhas Tarefas
+          </h2>
+          <p className="text-sm text-blue-600/80 mt-1">Gerencie suas atividades acadêmicas</p>
         </div>
         
+        <div className="p-4 border-b border-slate-100 bg-slate-50/50">
+          <form onSubmit={handleAddTask} className="flex flex-col gap-3">
+            <input
+              type="text"
+              placeholder="Nova tarefa..."
+              value={newTaskTitle}
+              onChange={e => setNewTaskTitle(e.target.value)}
+              className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <div className="flex gap-2">
+              <input
+                type="date"
+                value={newTaskDate}
+                onChange={e => setNewTaskDate(e.target.value)}
+                className="flex-1 bg-white border border-slate-300 rounded-lg px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <input
+                type="time"
+                value={newTaskTime}
+                onChange={e => setNewTaskTime(e.target.value)}
+                className="w-24 bg-white border border-slate-300 rounded-lg px-2 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={!newTaskTitle.trim()}
+              className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white rounded-lg py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <Plus className="w-4 h-4" /> Adicionar
+            </button>
+          </form>
+        </div>
+
         <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
           {tasks.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-3">
-              <CheckCircle className="w-12 h-12 stroke-1 text-slate-300" />
-              <p className="text-center text-sm px-4">Nenhuma atividade agendada. Informe ao Guardião sobre novas tarefas!</p>
+              <ClipboardList className="w-12 h-12 stroke-1 text-slate-300" />
+              <p className="text-center text-sm px-4">Nenhuma tarefa. Adicione algo acima!</p>
             </div>
           ) : (
             <AnimatePresence>
@@ -208,7 +115,7 @@ export default function App() {
                   exit={{ opacity: 0, scale: 0.95 }}
                   key={task.id}
                   onClick={() => toggleTaskCompletion(task.id)}
-                  className={`p-4 rounded-xl border cursor-pointer transition-all duration-200 ${
+                  className={`relative p-4 rounded-xl border cursor-pointer transition-all duration-200 group ${
                     task.status === 'completed' 
                       ? 'bg-slate-50 border-slate-200 opacity-60' 
                       : 'bg-white border-blue-100 shadow-sm hover:shadow-md hover:border-blue-200'
@@ -220,8 +127,8 @@ export default function App() {
                     }`}>
                       {task.status === 'completed' && <CheckCircle className="w-3 h-3" />}
                     </div>
-                    <div>
-                      <h3 className={`font-medium text-sm transition-all ${task.status === 'completed' ? 'line-through text-slate-500' : 'text-slate-800'}`}>
+                    <div className="flex-1">
+                      <h3 className={`font-medium text-sm transition-all pr-6 ${task.status === 'completed' ? 'line-through text-slate-500' : 'text-slate-800'}`}>
                         {task.title}
                       </h3>
                       <div className="flex items-center gap-3 mt-2 text-xs font-medium text-slate-500">
@@ -236,6 +143,12 @@ export default function App() {
                       </div>
                     </div>
                   </div>
+                  <button 
+                    onClick={(e) => deleteTask(task.id, e)}
+                    className="absolute top-4 right-4 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </motion.div>
               ))}
             </AnimatePresence>
@@ -243,109 +156,138 @@ export default function App() {
         </div>
       </div>
 
-      {/* Main Chat Area */}
+      {/* Main Area */}
       <div className="flex-1 flex flex-col bg-slate-50 relative">
         <header className="px-6 py-4 bg-white border-b border-slate-200 shadow-sm flex items-center justify-between sticky top-0 z-10">
           <div className="flex items-center gap-3">
-            <div className="bg-blue-600 p-2 rounded-lg">
-              <Bot className="w-6 h-6 text-white" />
+            <div className="w-12 h-12 flex items-center justify-center relative">
+              <AppLogo className="w-12 h-12" />
             </div>
             <div>
-              <h1 className="font-bold text-slate-900 text-lg">Guardião da Segurança do Trabalho</h1>
-              <div className="flex items-center gap-1.5 text-xs font-medium text-green-600">
-                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                Online e monitorando
+              <h1 className="font-bold text-slate-900 text-lg sm:text-base md:text-lg">Guardião Acadêmico</h1>
+              <div className="text-xs font-medium text-slate-500">
+                Gerenciamento Simples e Direto
               </div>
             </div>
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 scroll-smooth">
-          <div className="max-w-3xl mx-auto flex flex-col gap-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-10 flex flex-col items-center">
+          <div className="w-full max-w-4xl space-y-6 flex flex-col items-center">
             
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex gap-3 text-sm text-yellow-800 shadow-sm">
-              <AlertCircle className="w-5 h-5 flex-shrink-0 text-yellow-600" />
-              <p>Simulador Ativado: Crie tarefas (ex: "Tenho atividade de Química") e veja a IA agendar automaticamente na sua barra lateral.</p>
+            <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm text-center w-full">
+              <LayoutDashboard className="w-12 h-12 text-blue-600 mx-auto mb-4" />
+              <h2 className="text-2xl font-bold text-slate-800 mb-2">Bem-vindo ao seu painel</h2>
+              <p className="text-slate-600 max-w-lg mx-auto">
+                Acesse sua grade de horários, insira suas notas e gerencie suas tarefas de forma simples e rápida, sem distrações.
+              </p>
             </div>
 
-            {messages.map((message) => (
-              <motion.div 
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                key={message.id} 
-                className={`flex gap-4 ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
+              <div 
+                onClick={() => setShowSchedule(true)}
+                className="group cursor-pointer bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-300 transition-all text-center flex flex-col items-center justify-center gap-4 h-48"
               >
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                  message.role === 'user' 
-                    ? 'bg-slate-200 text-slate-600' 
-                    : 'bg-blue-100 text-blue-700 border border-blue-200'
-                }`}>
-                  {message.role === 'user' ? <User className="w-5 h-5" /> : <Bot className="w-6 h-6" />}
+                <div className="w-16 h-16 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-100 group-hover:scale-110 transition-all">
+                  <Calendar className="w-8 h-8" />
                 </div>
-                
-                <div className={`max-w-[85%] md:max-w-[75%] rounded-2xl p-4 shadow-sm ${
-                  message.role === 'user' 
-                    ? 'bg-blue-600 text-white rounded-tr-sm' 
-                    : 'bg-white border border-slate-200 text-slate-800 rounded-tl-sm'
-                }`}>
-                  <div className="whitespace-pre-wrap format-tags">
-                    {/* Basic markdown formatting since we aren't using a library yet */}
-                    {message.content.split('\n').map((line, i) => (
-                      <p key={i} className={i !== 0 ? 'mt-2' : ''}>
-                        {line.split(/(\*\*.*?\*\*)/g).map((part, j) => {
-                          if (part.startsWith('**') && part.endsWith('**')) {
-                            return <strong key={j} className={message.role === 'user' ? 'text-white font-bold' : 'text-slate-900 font-bold'}>{part.slice(2, -2)}</strong>;
-                          }
-                          return part;
-                        })}
-                      </p>
-                    ))}
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-            
-            {isLoading && (
-              <div className="flex gap-4 flex-row">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-blue-100 text-blue-700 border border-blue-200">
-                  <Bot className="w-6 h-6" />
-                </div>
-                <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-sm p-4 shadow-sm flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <div className="w-2 h-2 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <div className="w-2 h-2 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                <div>
+                  <h3 className="font-bold text-slate-800 text-lg">Grade Horária</h3>
+                  <p className="text-sm text-slate-500">Visualize e edite as aulas da semana</p>
                 </div>
               </div>
-            )}
-            
-            <div ref={chatEndRef} />
-          </div>
-        </div>
 
-        <div className="p-4 bg-white border-t border-slate-200 w-full z-10 sticky bottom-0">
-          <form onSubmit={sendMessage} className="max-w-3xl mx-auto relative flex items-center">
-            <input
-              type="text"
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              placeholder="Ex: Tenho um trabalho de Química para entregar..."
-              disabled={isLoading}
-              className="w-full bg-slate-50 border border-slate-300 text-slate-900 rounded-full py-4 pl-6 pr-14 outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-inner"
-            />
-            <button 
-              type="submit" 
-              disabled={!input.trim() || isLoading}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 bg-blue-600 text-white rounded-full hover:bg-blue-700 disabled:bg-slate-300 disabled:text-slate-500 transition-colors shadow-sm"
-            >
-              <Send className="w-5 h-5" />
-            </button>
-          </form>
-          <div className="text-center mt-3 text-xs text-slate-500 flex justify-center items-center gap-2">
-             <span>Funciona com Google Gemini</span>
+              <div 
+                onClick={() => setShowGrades(true)}
+                className="group cursor-pointer bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:border-amber-300 transition-all text-center flex flex-col items-center justify-center gap-4 h-48"
+              >
+                <div className="w-16 h-16 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center group-hover:bg-amber-100 group-hover:scale-110 transition-all">
+                  <BoletimIcon className="w-8 h-8 font-bold" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-800 text-lg">Boletim Escolar</h3>
+                  <p className="text-sm text-slate-500">Acompanhe suas notas e situação</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="md:hidden mt-4 w-full">
+              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                <h3 className="font-bold text-slate-800 text-lg mb-4 flex items-center gap-2">
+                  <CheckCircle className="text-blue-600 w-5 h-5" />
+                  Minhas Tarefas (Móvel)
+                </h3>
+                 <form onSubmit={handleAddTask} className="flex flex-col gap-3 mb-6">
+                  <input
+                    type="text"
+                    placeholder="Nova tarefa..."
+                    value={newTaskTitle}
+                    onChange={e => setNewTaskTitle(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!newTaskTitle.trim()}
+                    className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white rounded-lg py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                  >
+                    <Plus className="w-4 h-4" /> Adicionar
+                  </button>
+                </form>
+                
+                <div className="flex flex-col gap-3">
+                  {tasks.length === 0 ? (
+                    <p className="text-center text-sm text-slate-500 py-4">Nenhuma tarefa.</p>
+                  ) : (
+                    tasks.map(task => (
+                      <div 
+                        key={task.id}
+                        onClick={() => toggleTaskCompletion(task.id)}
+                        className={`p-3 rounded-xl border flex items-center gap-3 ${
+                          task.status === 'completed' 
+                            ? 'bg-slate-50 border-slate-200 opacity-60' 
+                            : 'bg-white border-blue-100'
+                        }`}
+                      >
+                       <div className={`rounded-full flex-shrink-0 w-5 h-5 flex items-center justify-center border ${
+                          task.status === 'completed' ? 'bg-green-500 border-green-500 text-white' : 'border-slate-300'
+                        }`}>
+                          {task.status === 'completed' && <CheckCircle className="w-3 h-3" />}
+                        </div>
+                        <span className={`text-sm flex-1 ${task.status === 'completed' ? 'line-through text-slate-500' : 'text-slate-800'}`}>
+                          {task.title}
+                        </span>
+                        <button 
+                          onClick={(e) => deleteTask(task.id, e)}
+                          className="text-slate-400 hover:text-red-500 p-1"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
       </div>
       
+      <AnimatePresence>
+        {showSchedule && (
+          <ScheduleManager 
+            schedule={schedule} 
+            setSchedule={setSchedule} 
+            onClose={() => setShowSchedule(false)} 
+          />
+        )}
+        {showGrades && (
+          <GradesManager 
+            schedule={schedule} 
+            onClose={() => setShowGrades(false)} 
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
