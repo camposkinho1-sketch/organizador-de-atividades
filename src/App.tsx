@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { GoogleGenAI, Type, FunctionDeclaration } from '@google/genai';
 import { Send, CheckCircle, Clock, Calendar as CalendarIcon, User, AlertCircle, Settings, GraduationCap } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ScheduleManager, DaySchedule, defaultSchedule } from './components/ScheduleManager';
@@ -9,41 +8,6 @@ import { useSyncState } from './lib/useSync';
 import { useAuth } from './lib/AuthContext';
 
 import { BoletimIcon } from './components/BoletimIcon';
-
-// --- System Instructions ---
-const getSystemInstruction = (schedule: DaySchedule[]) => {
-  const now = new Date();
-  const days = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
-  const currentDay = days[now.getDay()];
-  const currentDate = now.toLocaleDateString('pt-BR');
-  const currentTime = now.toLocaleTimeString('pt-BR');
-
-  const scheduleStr = schedule.map(day => `${day.short}: ${day.classes.length > 0 ? day.classes.join(', ') : 'Sem aulas'}`).join('\n');
-
-  return `Você é o Guardião da Segurança do Trabalho, um assistente acadêmico de alta performance e gestor de produtividade. Seu objetivo é organizar a rotina do usuário, garantindo que ele nunca perca uma aula ou o prazo de uma atividade. Você deve ser proativo, organizado e utilizar as ferramentas do Google Workspace (simuladas aqui por suas ferramentas integradas) para suporte total.
-
-[CONTEXTO TEMPORAL ATUAL]
-Hoje é ${currentDay}, ${currentDate}. O horário atual é ${currentTime}. Use isso para calcular "próximas aulas" corretamente.
-[/CONTEXTO TEMPORAL]
-
-1. Base de Conhecimento (Grade Horária)
-Utilize esta grade como base padrão para o planejamento:
-${scheduleStr}
-
-2. Flexibilidade e Mudanças de Horário
-Aviso de Mudança: Sempre informe que os horários podem mudar.
-Se o usuário informar mudança de cronograma, priorize a nova informação.
-
-3. Protocolo de Atividades (Ação Automática com Horários de Entrega)
-Sempre que o usuário mencionar uma atividade e uma matéria, você deve executar este fluxo obrigatoriamente:
-- Identificar a Próxima Aula: Veja na grade qual é o próximo dia que essa matéria acontece, a partir de hoje.
-- Cálculo da Data: Defina o prazo para 1 dia antes dessa aula.
-- Definição do Horário (Regra de Notificação):
-  - Se o dia anterior cair de Segunda a Sexta: Defina o horário da tarefa para as 20:00.
-  - Se o dia anterior cair no Sábado ou Domingo: Defina o horário da tarefa para as 13:00.
-- CRIAR TAREFA: VOCÊ DEVE OBRIGATORIAMENTE CHAMAR A FUNÇÃO \`create_task\` com o título "[MATÉRIA] - [NOME DA ATIVIDADE]" e data/hora calculados.
-- Confirmação: Informe ao usuário: "Tarefa salva! Como sua próxima aula de [Matéria] é na [Dia], defini o lembrete no seu Tasks para [Data] às [Horário]."`;
-};
 
 // --- Types ---
 type Message = {
@@ -60,31 +24,7 @@ type Task = {
   status: 'pending' | 'completed';
 };
 
-// --- GenAI Setup ---
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
-const createTaskTool: FunctionDeclaration = {
-  name: "create_task",
-  description: "Cria uma nova tarefa no Google Tasks para o usuário.",
-  parameters: {
-    type: Type.OBJECT,
-    properties: {
-      title: {
-        type: Type.STRING,
-        description: "Título da tarefa, no formato '[MATÉRIA] - [NOME DA ATIVIDADE]'",
-      },
-      date: {
-        type: Type.STRING,
-        description: "Data da tarefa no formato YYYY-MM-DD",
-      },
-      time: {
-        type: Type.STRING,
-        description: "Horário da tarefa no formato HH:MM (ex: 20:00 ou 13:00)",
-      },
-    },
-    required: ["title", "date", "time"],
-  },
-};
+// We explicitely pass history to server.
 
 export default function App() {
   const [messages, setMessages] = useState<Message[]>([
@@ -102,22 +42,7 @@ export default function App() {
   const [schedule, setSchedule] = useSyncState<DaySchedule[]>('guardiao_schedule', defaultSchedule, 'schedule_data');
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // We explicitly type the chat instance
-  const chatRef = useRef<any>(null);
-
   const { googleAccessToken, signIn } = useAuth();
-
-  useEffect(() => {
-    // Initialize Chat
-    chatRef.current = ai.chats.create({
-      model: "gemini-3-flash-preview",
-      config: {
-        systemInstruction: getSystemInstruction(schedule),
-        tools: [{ functionDeclarations: [createTaskTool] }],
-        temperature: 0.2, // Low temperature for more reliable formatting and rules
-      }
-    });
-  }, [schedule]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -198,15 +123,32 @@ export default function App() {
     setIsLoading(true);
 
     try {
-      if (!chatRef.current) return;
-      
-      let response = await chatRef.current.sendMessage({ message: userMsg });
+      const historyFormatted = messages.filter(m => m.id !== 'welcome').map(m => ({
+        role: m.role,
+        parts: [{ text: m.content }]
+      }));
+
+      let response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          history: historyFormatted,
+          message: userMsg,
+          schedule
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Falha ao comunicar com o servidor');
+      }
+
+      const responseData = await response.json();
       
       // Check if function was called
-      if (response.functionCalls && response.functionCalls.length > 0) {
+      if (responseData.functionCalls && responseData.functionCalls.length > 0) {
         let functionResponseParts: any[] = [];
         
-        for (const call of response.functionCalls) {
+        for (const call of responseData.functionCalls) {
           if (call.name === 'create_task') {
             const result = await handleCreateTask(call.args);
             functionResponseParts.push({
@@ -220,11 +162,26 @@ export default function App() {
         }
         
         // Send function results back to the model to get the final text response
-        response = await chatRef.current.sendMessage({ message: functionResponseParts });
-      }
-      
-      if (response.text) {
-        setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', content: response.text }]);
+        const secondResponse = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+             history: [...historyFormatted, { role: 'user', parts: [{ text: userMsg }] }, { role: 'model', parts: [{ functionCall: responseData.functionCalls[0] }] }],
+             message: functionResponseParts,
+             schedule
+          })
+        });
+
+        if (secondResponse.ok) {
+           const secondData = await secondResponse.json();
+           if (secondData.text) {
+             setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', content: secondData.text }]);
+           }
+        } else {
+           throw new Error('Falha ao comunicar com o servidor (segunda etapa)');
+        }
+      } else if (responseData.text) {
+        setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', content: responseData.text }]);
       }
     } catch (error: any) {
       console.error("Error communicating with Gemini:", error);
