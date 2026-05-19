@@ -54,7 +54,6 @@ export function getUnitGrade(unit: UnitDetail): number | null {
   if (!unit) return null;
   if (unit.useEvaluations) {
     if (unit.evaluations.length === 0) return null;
-    let totalWeight = 0;
     let totalGrade = 0;
     let hasGrade = false;
     unit.evaluations.forEach(ev => {
@@ -63,22 +62,12 @@ export function getUnitGrade(unit: UnitDetail): number | null {
       else if (typeof ev.grade === 'string') g = parseFloat(ev.grade.replace(',', '.'));
       
       if (g !== null && !isNaN(g)) {
-        let w = 1;
-        if (typeof ev.weight === 'number') w = ev.weight;
-        else if (typeof ev.weight === 'string' && ev.weight.trim() !== '') {
-          const wParsed = parseFloat(ev.weight.replace(',', '.'));
-          if (!isNaN(wParsed) && wParsed >= 0) w = wParsed;
-        } else if (ev.weight === null) {
-          w = 1; // Default fallback if weight is cleared
-        }
-        
-        totalGrade += g * w;
-        totalWeight += w;
+        totalGrade += g;
         hasGrade = true;
       }
     });
-    if (!hasGrade || totalWeight === 0) return null;
-    return totalGrade / totalWeight;
+    if (!hasGrade) return null;
+    return totalGrade;
   } else {
     if (typeof unit.manualGrade === 'number') return unit.manualGrade;
     if (typeof unit.manualGrade === 'string') {
@@ -161,7 +150,7 @@ function UnitDetailsModal({
         <div className="px-5 py-4 border-b flex justify-between items-center bg-slate-50">
           <div>
             <h3 className="font-bold text-slate-800 text-lg">{unitIndex + 1}ª Unidade - {subjectName}</h3>
-            <p className="text-xs text-slate-500 mt-0.5">Detalhe suas avaliações para calcular a média desta unidade.</p>
+            <p className="text-xs text-slate-500 mt-0.5">Informe as notas para calcular o total desta unidade.</p>
           </div>
           <button onClick={onClose} className="p-1.5 hover:bg-slate-200 rounded-full transition-colors text-slate-600">
             <X className="w-5 h-5" />
@@ -170,14 +159,14 @@ function UnitDetailsModal({
 
         <div className="p-5 overflow-y-auto flex-1 flex flex-col gap-6">
           
-          <div className="flex bg-slate-100 p-1 rounded-lg">
+              <div className="flex bg-slate-100 p-1 rounded-lg">
             <button
               onClick={() => setEditedUnit({ ...editedUnit, useEvaluations: false })}
               className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${
                 !editedUnit.useEvaluations ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'
               }`}
             >
-              Média Direta
+              Nota Direta
             </button>
             <button
               onClick={() => setEditedUnit({ ...editedUnit, useEvaluations: true })}
@@ -185,13 +174,13 @@ function UnitDetailsModal({
                 editedUnit.useEvaluations ? 'bg-white text-amber-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
               }`}
             >
-              Cálculo Detalhado
+              Soma Detalhada
             </button>
           </div>
 
           {!editedUnit.useEvaluations ? (
             <div className="flex flex-col items-center justify-center py-8">
-              <label className="text-sm font-medium text-slate-600 mb-2">Informe a Média Arredondada</label>
+              <label className="text-sm font-medium text-slate-600 mb-2">Informe a Nota Final</label>
               <input 
                 type="text"
                 placeholder="Ex: 8.5"
@@ -208,46 +197,37 @@ function UnitDetailsModal({
                 </h4>
                 {currentComputedGrade !== null && (
                   <div className="text-sm font-bold text-slate-700 bg-amber-50 px-3 py-1 rounded-full border border-amber-200">
-                    Média Resultante: <span className="text-amber-700">{currentComputedGrade.toFixed(2)}</span>
+                    Soma Resultante: <span className="text-amber-700">{currentComputedGrade.toFixed(2)}</span>
                   </div>
                 )}
               </div>
 
               {editedUnit.evaluations.length === 0 ? (
                 <div className="text-center py-8 bg-slate-50 border border-dashed border-slate-200 rounded-xl">
-                  <p className="text-sm text-slate-500 mb-3">Nenhuma avaliação cadastrada nesta unidade.</p>
+                  <p className="text-sm text-slate-500 mb-3">Nenhuma nota cadastrada nesta unidade.</p>
                 </div>
               ) : (
                 <div className="flex flex-col gap-3">
                   <div className="flex gap-2 text-xs font-semibold text-slate-500 px-2 uppercase">
-                    <div className="flex-1">Atividade</div>
-                    <div className="w-16 text-center">Peso</div>
-                    <div className="w-20 text-center">Nota</div>
+                    <div className="flex-1">Descrição</div>
+                    <div className="w-24 text-center">Nota</div>
                     <div className="w-8"></div>
                   </div>
                   {editedUnit.evaluations.map(ev => (
                     <div key={ev.id} className="flex gap-2 items-center bg-white p-2 rounded-lg border border-slate-200 shadow-sm">
                       <input 
                         type="text"
-                        placeholder="Ex: Seminário"
+                        placeholder="Ex: Prova"
                         value={ev.name}
                         onChange={(e) => handleUpdateEval(ev.id, 'name', e.target.value)}
                         className="flex-1 border-none bg-slate-50 rounded px-2 py-1.5 text-sm focus:ring-1 focus:ring-amber-500 outline-none"
                       />
                       <input 
                         type="text"
-                        placeholder="1"
-                        value={ev.weight !== null ? ev.weight : ""}
-                        onChange={(e) => handleUpdateEval(ev.id, 'weight', e.target.value)}
-                        className="w-16 text-center border-none bg-slate-50 rounded px-2 py-1.5 text-sm focus:ring-1 focus:ring-amber-500 outline-none"
-                        title="Peso da nota"
-                      />
-                      <input 
-                        type="text"
-                        placeholder="10.0"
+                        placeholder="0.0"
                         value={ev.grade !== null ? ev.grade : ""}
                         onChange={(e) => handleUpdateEval(ev.id, 'grade', e.target.value)}
-                        className="w-20 text-center font-semibold text-amber-700 border-none bg-amber-50/50 rounded px-2 py-1.5 text-sm focus:ring-1 focus:ring-amber-500 outline-none placeholder:text-amber-200"
+                        className="w-24 text-center font-semibold text-amber-700 border-none bg-amber-50/50 rounded px-2 py-1.5 text-sm focus:ring-1 focus:ring-amber-500 outline-none placeholder:text-amber-200"
                       />
                       <button 
                         onClick={() => handleDeleteEval(ev.id)}
