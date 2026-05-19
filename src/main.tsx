@@ -3,14 +3,17 @@ import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import { AuthGuard } from './lib/AuthGuard.tsx';
 import { AuthProvider } from './lib/AuthContext.tsx';
+import { ErrorBoundary } from './components/ErrorBoundary.tsx';
 import './index.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <AuthProvider>
-      <AuthGuard>
-        <App />
-      </AuthGuard>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <AuthGuard>
+          <App />
+        </AuthGuard>
+      </AuthProvider>
+    </ErrorBoundary>
   </StrictMode>,
 );
