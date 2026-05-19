@@ -156,7 +156,13 @@ app.post("/api/chat", async (req, res) => {
     }
   } catch (error: any) {
     console.error("OpenRouter API Error:", error);
-    res.status(500).json({ error: error.message || "Failed to generate content" });
+    let message = "Falha ao gerar conteúdo.";
+    if (error.status === 402) {
+      message = "Créditos insuficientes no OpenRouter. Verifique sua conta.";
+    } else if (error.message) {
+      message = error.message;
+    }
+    res.status(error.status || 500).json({ error: message });
   }
 });
 

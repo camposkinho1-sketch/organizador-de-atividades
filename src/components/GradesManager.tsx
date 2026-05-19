@@ -51,6 +51,7 @@ const createEmptyUnit = (): UnitDetail => ({
 });
 
 export function getUnitGrade(unit: UnitDetail): number | null {
+  if (!unit) return null;
   if (unit.useEvaluations) {
     if (unit.evaluations.length === 0) return null;
     let totalWeight = 0;
@@ -101,7 +102,10 @@ function UnitDetailsModal({
   onSave: (newUnit: UnitDetail) => void; 
   onClose: () => void;
 }) {
-  const [editedUnit, setEditedUnit] = useState<UnitDetail>({ ...unit, evaluations: [...unit.evaluations] });
+  const [editedUnit, setEditedUnit] = useState<UnitDetail>(() => {
+    if (!unit) return createEmptyUnit();
+    return { ...unit, evaluations: unit.evaluations ? [...unit.evaluations] : [] };
+  });
 
   const handleAddEval = () => {
     setEditedUnit(prev => ({
@@ -305,6 +309,8 @@ export function GradesManager({ schedule, onClose }: GradesManagerProps) {
   const [editingCell, setEditingCell] = useState<{subjectName: string, unitIndex: number} | null>(null);
 
   useEffect(() => {
+    if (!uniqueSubjects || uniqueSubjects.length === 0) return;
+    
     setConfig(prev => {
       const newGrades = { ...prev.grades };
       let changed = false;
@@ -312,7 +318,7 @@ export function GradesManager({ schedule, onClose }: GradesManagerProps) {
         if (!newGrades[sub]) {
           newGrades[sub] = {
             subjectName: sub,
-            units: Array(prev.numberOfUnits).fill(null).map(createEmptyUnit)
+            units: Array(prev.numberOfUnits || 4).fill(null).map(createEmptyUnit)
           };
           changed = true;
         } else if (newGrades[sub].units.length !== prev.numberOfUnits) {
@@ -326,11 +332,7 @@ export function GradesManager({ schedule, onClose }: GradesManagerProps) {
       }
       return prev;
     });
-  }, [uniqueSubjects, config.numberOfUnits]);
-
-  useEffect(() => {
-    localStorage.setItem('guardiao_grades', JSON.stringify(config));
-  }, [config]);
+  }, [uniqueSubjects, config.numberOfUnits, setConfig]);
 
   const updateSchoolName = (name: string) => setConfig({ ...config, schoolName: name });
   const updateUnitAverage = (val: string) => setConfig({ ...config, unitPassingAverage: parseFloat(val) || 0 });
@@ -538,7 +540,7 @@ export function GradesManager({ schedule, onClose }: GradesManagerProps) {
                                 <button 
                                   onClick={() => setEditingCell({ subjectName, unitIndex })}
                                   className={`w-full py-2 px-1 rounded-lg border transition-all text-sm flex items-center justify-center gap-1 group-hover:scale-105 active:scale-95 ${
-                                    computedGrade !== null 
+                                    (unit && computedGrade !== null)
                                       ? unit.useEvaluations ? 'border-amber-200 bg-amber-50 text-amber-800 font-bold shadow-sm' : 'border-slate-200 bg-white text-slate-800 font-bold shadow-sm hover:border-amber-300' 
                                       : 'border-dashed border-slate-300 text-slate-400 bg-slate-50/50 hover:bg-slate-100 hover:text-slate-600'
                                   }`}
@@ -586,7 +588,11 @@ export function GradesManager({ schedule, onClose }: GradesManagerProps) {
           <UnitDetailsModal 
             subjectName={editingCell.subjectName}
             unitIndex={editingCell.unitIndex}
-            unit={config.grades[editingCell.subjectName].units[editingCell.unitIndex]}
+            unit={
+              (config.grades[editingCell.subjectName] && config.grades[editingCell.subjectName].units[editingCell.unitIndex]) 
+              ? config.grades[editingCell.subjectName].units[editingCell.unitIndex] 
+              : createEmptyUnit()
+            }
             onSave={(newUnit) => handleSaveUnit(editingCell.subjectName, editingCell.unitIndex, newUnit)}
             onClose={() => setEditingCell(null)}
           />
