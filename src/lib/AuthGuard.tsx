@@ -53,18 +53,6 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      <div className="fixed top-4 right-4 z-[100] flex gap-2">
-        <div className="bg-white/80 backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-semibold text-slate-600 border border-slate-200 shadow-sm flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-green-500"></div>
-          Sincronizado
-        </div>
-        <button 
-          onClick={logOut}
-          className="bg-white/80 backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-semibold text-red-600 hover:bg-red-50 border border-slate-200 shadow-sm transition-colors"
-        >
-          Sair
-        </button>
-      </div>
       {children}
     </>
   );

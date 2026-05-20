@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, CheckCircle, Clock, Calendar as CalendarIcon, User, AlertCircle, Settings, GraduationCap } from 'lucide-react';
+import { Send, CheckCircle, Clock, Calendar as CalendarIcon, User, AlertCircle, Settings, GraduationCap, Menu, X, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ScheduleManager, DaySchedule, defaultSchedule } from './components/ScheduleManager';
 import { GradesManager } from './components/GradesManager';
@@ -39,10 +39,11 @@ export default function App() {
   const [tasks, setTasks] = useSyncState<Task[]>('guardiao_tasks', [], 'tasks_data');
   const [showSchedule, setShowSchedule] = useState(false);
   const [showGrades, setShowGrades] = useState(false);
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [schedule, setSchedule] = useSyncState<DaySchedule[]>('guardiao_schedule', defaultSchedule, 'schedule_data');
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  const { googleAccessToken, signIn } = useAuth();
+  const { googleAccessToken, signIn, logOut } = useAuth();
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -208,8 +209,16 @@ export default function App() {
   return (
     <div className="flex h-screen bg-slate-50 text-slate-900 font-sans overflow-hidden">
       
+      {/* Mobile Overlay */}
+      {showMobileSidebar && (
+        <div 
+          className="fixed inset-0 bg-slate-900/50 z-40 md:hidden backdrop-blur-sm" 
+          onClick={() => setShowMobileSidebar(false)} 
+        />
+      )}
+
       {/* Sidebar: Simulated Google Tasks */}
-      <div className="w-80 bg-white border-r border-slate-200 shadow-sm flex flex-col z-10 hidden md:flex">
+      <div className={`w-80 bg-white border-r border-slate-200 shadow-2xl md:shadow-sm flex-col z-50 md:z-10 absolute md:relative inset-y-0 left-0 transform transition-transform duration-300 ease-in-out ${showMobileSidebar ? 'translate-x-0' : '-translate-x-full md:translate-x-0'} flex`}>
         <div className="p-6 border-b border-slate-100 flex flex-col gap-4 bg-blue-50/50">
           <div className="flex items-center justify-between">
             <div>
@@ -217,10 +226,29 @@ export default function App() {
                 <CheckCircle className="text-blue-600 w-6 h-6" />
                 Suas Tarefas
               </h2>
-              <p className="text-sm text-blue-600/80 mt-1">Sincronizado via Guardião</p>
+              <div className="flex items-center gap-2 mt-1">
+                <p className="text-sm text-blue-600/80">Sincronizado</p>
+                <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+              </div>
             </div>
+            {/* Close button for mobile */}
+            <button 
+              onClick={() => setShowMobileSidebar(false)}
+              className="md:hidden p-2 text-slate-500 hover:bg-blue-100 rounded-full"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
-          {!googleAccessToken && (
+          
+          {googleAccessToken ? (
+            <button 
+              onClick={logOut}
+              className="text-xs font-semibold bg-white border border-red-200 text-red-600 py-2 px-3 rounded-lg shadow-sm hover:bg-red-50 transition-colors w-full flex items-center justify-center gap-2"
+            >
+              <LogOut className="w-4 h-4" />
+              Sair da Conta Google
+            </button>
+          ) : (
             <button 
               onClick={signIn}
               className="text-xs font-semibold bg-white border border-blue-200 text-blue-700 py-2 px-3 rounded-lg shadow-sm hover:bg-blue-50 transition-colors w-full flex items-center justify-center gap-2"
@@ -284,34 +312,42 @@ export default function App() {
       </div>
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col bg-slate-50 relative">
-        <header className="px-6 py-4 bg-white border-b border-slate-200 shadow-sm flex items-center justify-between sticky top-0 z-10">
+      <div className="flex-1 flex flex-col bg-slate-50 relative min-w-0">
+        <header className="px-4 md:px-6 py-4 bg-white border-b border-slate-200 shadow-sm flex items-center justify-between sticky top-0 z-10 w-full">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 flex items-center justify-center relative">
-              <AppLogo className="w-12 h-12" />
+            <button 
+              onClick={() => setShowMobileSidebar(true)}
+              className="md:hidden p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+            >
+              <Menu className="w-6 h-6" />
+            </button>
+            <div className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center relative flex-shrink-0">
+              <AppLogo className="w-10 h-10 md:w-12 md:h-12" />
             </div>
-            <div>
-              <h1 className="font-bold text-slate-900 text-lg sm:text-base md:text-lg">Guardião da Segurança do Trabalho</h1>
+            <div className="min-w-0">
+              <h1 className="font-bold text-slate-900 text-sm sm:text-base md:text-lg truncate">Guardião Estudantil</h1>
               <div className="flex items-center gap-1.5 text-xs font-medium text-green-600">
                 <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                Online e monitorando
+                <span className="truncate">Online</span>
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 md:gap-2 flex-shrink-0">
             <button 
               onClick={() => setShowGrades(true)}
-              className="flex items-center gap-2 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-transparent rounded-lg transition-colors text-sm font-medium"
+              className="flex items-center gap-2 px-2 md:px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-transparent rounded-lg transition-colors text-sm font-medium"
+              title="Boletim"
             >
               <BoletimIcon className="w-5 h-5 text-blue-600 font-bold" />
               <span className="hidden sm:inline">Boletim</span>
             </button>
             <button 
               onClick={() => setShowSchedule(true)}
-              className="flex items-center gap-2 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors text-sm font-medium"
+              className="flex items-center gap-2 px-2 md:px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors text-sm font-medium"
+              title="Editar Grade"
             >
               <Settings className="w-4 h-4" />
-              <span className="hidden sm:inline">Editar Grade</span>
+              <span className="hidden sm:inline">Grade</span>
             </button>
           </div>
         </header>
