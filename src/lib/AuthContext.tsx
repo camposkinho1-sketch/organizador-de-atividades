@@ -21,16 +21,29 @@ const AuthContext = createContext<AuthContextType>({
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [googleAccessToken, setGoogleAccessToken] = useState<string | null>(null);
+  
+  const [googleAccessToken, setGoogleAccessToken] = useState<string | null>(() => {
+    const stored = localStorage.getItem('googleAccessToken');
+    const expiry = localStorage.getItem('googleAccessTokenExpiry');
+    if (stored && expiry) {
+      if (Date.now() < parseInt(expiry, 10)) {
+        return stored;
+      } else {
+        localStorage.removeItem('googleAccessToken');
+        localStorage.removeItem('googleAccessTokenExpiry');
+      }
+    }
+    return null;
+  });
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setLoading(false);
-      // We can't automatically get the Google access token here on reload.
-      // So if currentUser exists but no googleAccessToken, we might need a re-auth if they want to sync.
       if (!currentUser) {
         setGoogleAccessToken(null);
+        localStorage.removeItem('googleAccessToken');
+        localStorage.removeItem('googleAccessTokenExpiry');
       }
     });
 
@@ -42,7 +55,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const provider = new GoogleAuthProvider();
       provider.addScope('https://www.googleapis.com/auth/tasks');
       
-      // We add custom parameters just to make sure we request access
       provider.setCustomParameters({
         prompt: 'consent'
       });
@@ -51,6 +63,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const credential = GoogleAuthProvider.credentialFromResult(result);
       if (credential?.accessToken) {
         setGoogleAccessToken(credential.accessToken);
+        localStorage.setItem('googleAccessToken', credential.accessToken);
+        // Token expira em aproximadamente 1 hora. Guardamos para 55 minutos para segurança.
+        localStorage.setItem('googleAccessTokenExpiry', (Date.now() + 55 * 60 * 1000).toString());
       }
     } catch (error: any) {
       if (error.code !== 'auth/cancelled-popup-request' && error.code !== 'auth/popup-closed-by-user') {
@@ -63,6 +78,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const logOut = async () => {
     await signOut(auth);
     setGoogleAccessToken(null);
+    localStorage.removeItem('googleAccessToken');
+    localStorage.removeItem('googleAccessTokenExpiry');
   };
 
   return (

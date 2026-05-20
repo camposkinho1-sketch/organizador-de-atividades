@@ -59,6 +59,9 @@ export default function App() {
       if (!listsRes.ok) {
         const errorText = await listsRes.text();
         console.error("Erro na API Tasks:", errorText);
+        if (listsRes.status === 401) {
+          throw new Error('Acesso expirado. Por favor, conecte-se com o Google novamente.');
+        }
         if (listsRes.status === 403) {
           throw new Error('A API do Google Tasks NÃO ESTÁ ATIVADA. Você precisa acessar o Google Cloud Console do seu projeto Firebase e ativar a "Google Tasks API" para funcionar.');
         }
