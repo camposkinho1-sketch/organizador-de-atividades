@@ -8,6 +8,7 @@ import { EditTaskModal } from './components/EditTaskModal';
 import { AppLogo } from './components/Logo';
 import { useSyncState } from './lib/useSync';
 import { useAuth } from './lib/AuthContext';
+import { auth } from './lib/firebase';
 
 import { BoletimIcon } from './components/BoletimIcon';
 
@@ -376,8 +377,21 @@ export default function App() {
     }
   };
 
+  const handleAppClick = () => {
+    // If the user is logged into Firebase but the Tasks token expired or is missing,
+    // intercept the first click to seamlessly reconnect, as it provides the required user gesture for popups.
+    const currentUser = auth.currentUser;
+    if (currentUser && !googleAccessToken) {
+      const storedToken = localStorage.getItem('googleAccessToken');
+      const expiry = localStorage.getItem('googleAccessTokenExpiry');
+      if (!storedToken || !expiry || Date.now() >= parseInt(expiry, 10)) {
+         signIn().catch(err => console.log("Silent auto-reconnect failed", err));
+      }
+    }
+  };
+
   return (
-    <div className="flex h-screen bg-slate-50 text-slate-900 font-sans overflow-hidden">
+    <div className="flex h-screen bg-slate-50 text-slate-900 font-sans overflow-hidden" onClick={handleAppClick}>
       
       {/* Mobile Overlay */}
       {showMobileSidebar && (

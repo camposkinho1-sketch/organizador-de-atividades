@@ -50,6 +50,34 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return () => unsubscribe();
   }, []);
 
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+
+    const checkTokenExpiry = () => {
+      const stored = localStorage.getItem('googleAccessToken');
+      const expiry = localStorage.getItem('googleAccessTokenExpiry');
+      
+      if (user && (!stored || !expiry || Date.now() >= parseInt(expiry, 10))) {
+        // Token expired or missing. Clear it gently; don't trigger popup automatically
+        setGoogleAccessToken(null);
+        localStorage.removeItem('googleAccessToken');
+        localStorage.removeItem('googleAccessTokenExpiry');
+      } else if (user && stored && expiry) {
+        // Schedule next check
+        const timeRemaining = parseInt(expiry, 10) - Date.now();
+        if (timeRemaining > 0) {
+          timeoutId = setTimeout(checkTokenExpiry, timeRemaining + 1000);
+        }
+      }
+    };
+
+    if (user) {
+      checkTokenExpiry();
+    }
+
+    return () => clearTimeout(timeoutId);
+  }, [user]);
+
   const signIn = async () => {
     try {
       const provider = new GoogleAuthProvider();
