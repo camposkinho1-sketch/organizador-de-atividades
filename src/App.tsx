@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, CheckCircle, Clock, Calendar as CalendarIcon, User, AlertCircle, Settings, GraduationCap, Menu, X, LogOut, Book } from 'lucide-react';
+import { Send, CheckCircle, Clock, Calendar as CalendarIcon, User, AlertCircle, Settings, GraduationCap, Menu, X, LogOut, Book, Paperclip, FileIcon, ImageIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ScheduleManager, DaySchedule, defaultSchedule } from './components/ScheduleManager';
 import { GradesManager } from './components/GradesManager';
@@ -42,8 +42,10 @@ export default function App() {
   const [showGrades, setShowGrades] = useState(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [showPortfolio, setShowPortfolio] = useState(false);
+  const [attachment, setAttachment] = useState<{file: File, base64: string} | null>(null);
   const [schedule, setSchedule] = useSyncState<DaySchedule[]>('guardiao_schedule', defaultSchedule, 'schedule_data');
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { googleAccessToken, signIn, logOut } = useAuth();
 
@@ -121,11 +123,18 @@ export default function App() {
 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isLoading) return;
+    if ((!input.trim() && !attachment) || isLoading) return;
 
-    const userMsg = input.trim();
+    const userMsg = input.trim() || 'Processar arquivo anexo';
     setInput('');
-    setMessages(prev => [...prev, { id: Date.now().toString(), role: 'user', content: userMsg }]);
+    const currentAttachment = attachment;
+    setAttachment(null);
+    
+    let displayMessage = userMsg;
+    if (currentAttachment) {
+      displayMessage += `\n[Anexo: ${currentAttachment.file.name}]`;
+    }
+    setMessages(prev => [...prev, { id: Date.now().toString(), role: 'user', content: displayMessage }]);
     setIsLoading(true);
 
     try {
@@ -134,14 +143,24 @@ export default function App() {
         parts: [{ text: m.content }]
       }));
 
+      const bodyData: any = {
+        history: historyFormatted,
+        message: userMsg,
+        schedule
+      };
+
+      if (currentAttachment) {
+        bodyData.attachment = {
+          name: currentAttachment.file.name,
+          type: currentAttachment.file.type,
+          data: currentAttachment.base64
+        };
+      }
+
       let response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          history: historyFormatted,
-          message: userMsg,
-          schedule
-        })
+        body: JSON.stringify(bodyData)
       });
 
       if (!response.ok) {
@@ -216,6 +235,35 @@ export default function App() {
     setTasks(prev => prev.map(t => 
       t.id === taskId ? { ...t, status: 'pending' } : t
     ));
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Arquivo muito grande. O limite máximo é 5MB.");
+      return;
+    }
+
+    const validTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      alert("Formato não suportado. Por favor, envie uma imagem ou PDF.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setAttachment({ file, base64: reader.result });
+      }
+    };
+    reader.readAsDataURL(file);
+    
+    // reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   return (
@@ -428,26 +476,61 @@ export default function App() {
           </div>
         </div>
 
-        <div className="p-4 bg-white border-t border-slate-200 w-full z-10 sticky bottom-0">
-          <form onSubmit={sendMessage} className="max-w-3xl mx-auto relative flex items-center">
+        <div className="p-4 bg-white border-t border-slate-200 w-full z-10 sticky bottom-0 flex flex-col items-center">
+          {attachment && (
+            <div className="max-w-3xl w-full mb-3 flex items-center justify-between bg-blue-50 border border-blue-100 p-2.5 rounded-lg shadow-sm">
+              <div className="flex items-center gap-3 overflow-hidden">
+                <div className="bg-blue-100 p-2 rounded-md text-blue-700">
+                  {attachment.file.type.startsWith('image/') ? <ImageIcon className="w-5 h-5" /> : <FileIcon className="w-5 h-5" />}
+                </div>
+                <div className="truncate text-sm font-medium text-slate-700">
+                  {attachment.file.name}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAttachment(null)}
+                className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-slate-200 rounded-full transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+          
+          <form onSubmit={sendMessage} className="max-w-3xl w-full mx-auto relative flex items-center">
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              accept="image/*,.pdf"
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isLoading}
+              className="absolute left-2 top-1/2 -translate-y-1/2 p-2.5 text-slate-500 hover:bg-slate-100 hover:text-blue-600 rounded-full transition-colors disabled:opacity-50"
+            >
+              <Paperclip className="w-5 h-5" />
+            </button>
             <input
               type="text"
               value={input}
               onChange={e => setInput(e.target.value)}
               placeholder="Ex: Tenho um trabalho de Química para entregar..."
               disabled={isLoading}
-              className="w-full bg-slate-50 border border-slate-300 text-slate-900 rounded-full py-4 pl-6 pr-14 outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-inner"
+              className="w-full bg-slate-50 border border-slate-300 text-slate-900 rounded-full py-4 pl-14 pr-14 outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-inner"
             />
             <button 
               type="submit" 
-              disabled={!input.trim() || isLoading}
+              disabled={(!input.trim() && !attachment) || isLoading}
               className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 bg-blue-600 text-white rounded-full hover:bg-blue-700 disabled:bg-slate-300 disabled:text-slate-500 transition-colors shadow-sm"
             >
               <Send className="w-5 h-5" />
             </button>
           </form>
           <div className="text-center mt-3 text-xs text-slate-500 flex justify-center items-center gap-2">
-             <span>Funciona com Google Gemini</span>
+             <span>Funciona com Google Gemini (Lê Imagens e PDF)</span>
           </div>
         </div>
       </div>

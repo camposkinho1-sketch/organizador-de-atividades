@@ -2,7 +2,7 @@ import express from "express";
 import OpenAI from "openai";
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
 const openai = new OpenAI({
   baseURL: "https://openrouter.ai/api/v1",
@@ -71,7 +71,7 @@ Sempre que o usuário mencionar uma atividade e uma matéria, você deve executa
 
 app.post("/api/chat", async (req, res) => {
   try {
-    const { message, history, schedule } = req.body;
+    const { message, history, schedule, attachment } = req.body;
 
     if (!process.env.OPENROUTER_API_KEY) {
        return res.status(500).json({ error: "OPENROUTER_API_KEY is not configured on the server." });
@@ -128,10 +128,39 @@ app.post("/api/chat", async (req, res) => {
         }
       }
     } else {
-      openaiMessages.push({
-        role: "user",
-        content: message
-      });
+      if (attachment) {
+        let textContent = message;
+        const contentArr: any[] = [];
+        
+        if (attachment.type === "application/pdf") {
+          try {
+            const pdfParse = (await import("pdf-parse")).default;
+            const base64Data = attachment.data.split(',')[1] || attachment.data;
+            const buffer = Buffer.from(base64Data, "base64");
+            const pdfData = await pdfParse(buffer);
+            textContent += `\n\n[Conteúdo Extraído do PDF "${attachment.name}"]:\n${pdfData.text}`;
+          } catch (e) {
+            console.error("PDF Parsing error:", e);
+            textContent += `\n\n[Erro ao tentar ler o PDF "${attachment.name}"]`;
+          }
+          contentArr.push({ type: "text", text: textContent });
+        } else if (attachment.type.startsWith("image/")) {
+          contentArr.push({ type: "text", text: textContent });
+          contentArr.push({ type: "image_url", image_url: { url: attachment.data } });
+        } else {
+          contentArr.push({ type: "text", text: textContent });
+        }
+        
+        openaiMessages.push({
+          role: "user",
+          content: contentArr
+        });
+      } else {
+        openaiMessages.push({
+          role: "user",
+          content: message
+        });
+      }
     }
 
     const response = await openai.chat.completions.create({
