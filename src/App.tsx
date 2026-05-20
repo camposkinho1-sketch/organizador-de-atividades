@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, CheckCircle, Clock, Calendar as CalendarIcon, User, AlertCircle, Settings, GraduationCap, Menu, X, LogOut, Book, Paperclip, FileIcon, ImageIcon } from 'lucide-react';
+import { Send, CheckCircle, Clock, Calendar as CalendarIcon, User, AlertCircle, Settings, GraduationCap, Menu, X, LogOut, Book, Paperclip, FileIcon, ImageIcon, Edit2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ScheduleManager, DaySchedule, defaultSchedule } from './components/ScheduleManager';
 import { GradesManager } from './components/GradesManager';
 import { PortfolioManager } from './components/PortfolioManager';
+import { EditTaskModal } from './components/EditTaskModal';
 import { AppLogo } from './components/Logo';
 import { useSyncState } from './lib/useSync';
 import { useAuth } from './lib/AuthContext';
@@ -17,12 +18,14 @@ type Message = {
   content: string;
 };
 
-type Task = {
+export type Task = {
   id: string;
   title: string;
   date: string;
   time: string;
   status: 'pending' | 'completed';
+  googleTaskId?: string;
+  googleTaskListId?: string;
 };
 
 // We explicitely pass history to server.
@@ -43,6 +46,7 @@ export default function App() {
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [showPortfolio, setShowPortfolio] = useState(false);
   const [attachment, setAttachment] = useState<{file: File, base64: string} | null>(null);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [schedule, setSchedule] = useSyncState<DaySchedule[]>('guardiao_schedule', defaultSchedule, 'schedule_data');
   const chatEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -52,6 +56,63 @@ export default function App() {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Sync from Google Tasks on load or token change
+  useEffect(() => {
+    const fetchGoogleTasks = async () => {
+      if (!googleAccessToken) return;
+      try {
+        const listsRes = await fetch('https://tasks.googleapis.com/tasks/v1/users/@me/lists', {
+          headers: { Authorization: `Bearer ${googleAccessToken}` }
+        });
+        if (!listsRes.ok) return;
+        const listsData = await listsRes.json();
+        const taskListId = listsData.items[0]?.id;
+        if (!taskListId) return;
+
+        const tasksRes = await fetch(`https://tasks.googleapis.com/tasks/v1/lists/${taskListId}/tasks?showCompleted=true&showHidden=true`, {
+          headers: { Authorization: `Bearer ${googleAccessToken}` }
+        });
+        if (!tasksRes.ok) return;
+        const tasksData = await tasksRes.json();
+        const gTasks = tasksData.items || [];
+
+        setTasks(prev => prev.map(localTask => {
+          if (!localTask.googleTaskId) return localTask;
+          const remoteTask = gTasks.find((g: any) => g.id === localTask.googleTaskId);
+          if (remoteTask) {
+             const remoteCompleted = remoteTask.status === 'completed';
+             // Also could sync date/time from remote if it changed, but let's just sync completion for now,
+             // or sync title too.
+             const newStatus = remoteCompleted ? 'completed' : 'pending';
+             if (localTask.status !== newStatus || localTask.title !== remoteTask.title) {
+                return { ...localTask, status: newStatus, title: remoteTask.title || localTask.title };
+             }
+          }
+          return localTask;
+        }));
+      } catch (err) {
+        console.error("Error fetching google tasks:", err);
+      }
+    };
+    fetchGoogleTasks();
+  }, [googleAccessToken]);
+
+  const updateGoogleTask = async (taskId: string, listId: string, updates: any) => {
+    if (!googleAccessToken) return;
+    try {
+      await fetch(`https://tasks.googleapis.com/tasks/v1/lists/${listId}/tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 
+          Authorization: `Bearer ${googleAccessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updates)
+      });
+    } catch (err) {
+      console.error("Failed to update google task:", err);
+    }
+  };
 
   const syncToGoogleTasks = async (title: string, date: string, time: string) => {
     if (!googleAccessToken) return { success: false, message: 'Google Tasks desconectado' };
@@ -92,7 +153,8 @@ export default function App() {
       });
       
       if (!createRes.ok) throw new Error('Erro ao criar task no Google Tasks');
-      return { success: true, message: 'Sucesso' };
+      const createData = await createRes.json();
+      return { success: true, message: 'Sucesso', taskId: createData.id, listId: taskListId };
     } catch (error: any) {
       console.error("syncToGoogleTasks error:", error);
       return { success: false, message: error.message };
@@ -100,23 +162,33 @@ export default function App() {
   };
 
   const handleCreateTask = async (args: any) => {
+    let googleTaskId = undefined;
+    let googleTaskListId = undefined;
+    let googleSyncMsg = '';
+    
+    if (googleAccessToken) {
+      const result = await syncToGoogleTasks(args.title, args.date, args.time);
+      if (result.success) {
+         googleSyncMsg = ' (Sincronizado com Google Tasks)';
+         googleTaskId = result.taskId;
+         googleTaskListId = result.listId;
+      } else {
+         googleSyncMsg = ` (ATENÇÃO: Falha ao sincronizar: ${result.message})`;
+      }
+    } else {
+      googleSyncMsg = ' (Não sincronizado: Google Tasks desconectado)';
+    }
+
     const newTask: Task = {
       id: Math.random().toString(36).substring(7),
       title: args.title,
       date: args.date,
       time: args.time,
-      status: 'pending'
+      status: 'pending',
+      googleTaskId,
+      googleTaskListId
     };
     setTasks(prev => [...prev, newTask]);
-    
-    // Sync to Google
-    let googleSyncMsg = '';
-    if (googleAccessToken) {
-      const result = await syncToGoogleTasks(args.title, args.date, args.time);
-      googleSyncMsg = result.success ? ' (Sincronizado com Google Tasks)' : ` (ATENÇÃO: Falha ao sincronizar: ${result.message})`;
-    } else {
-      googleSyncMsg = ' (Não sincronizado: Google Tasks desconectado)';
-    }
 
     return { success: true, message: `Tarefa '${args.title}' agendada para ${args.date} às ${args.time}.${googleSyncMsg}` };
   };
@@ -222,19 +294,57 @@ export default function App() {
   };
 
   const toggleTaskCompletion = (taskId: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+    
+    const newStatus = task.status === 'completed' ? 'pending' : 'completed';
     setTasks(prev => prev.map(t => 
-      t.id === taskId ? { ...t, status: t.status === 'completed' ? 'pending' : 'completed' } : t
+      t.id === taskId ? { ...t, status: newStatus } : t
     ));
+
+    if (task.googleTaskId && task.googleTaskListId) {
+      updateGoogleTask(task.googleTaskId, task.googleTaskListId, { status: newStatus === 'completed' ? 'completed' : 'needsAction' });
+    }
   };
 
   const deleteTask = (taskId: string) => {
+    const task = tasks.find(t => t.id === taskId);
     setTasks(prev => prev.filter(t => t.id !== taskId));
+    
+    // Attempt delete in Google Tasks
+    if (task?.googleTaskId && task?.googleTaskListId && googleAccessToken) {
+      fetch(`https://tasks.googleapis.com/tasks/v1/lists/${task.googleTaskListId}/tasks/${task.googleTaskId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${googleAccessToken}` }
+      }).catch(err => console.error(err));
+    }
   };
 
   const restoreTask = (taskId: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
     setTasks(prev => prev.map(t => 
       t.id === taskId ? { ...t, status: 'pending' } : t
     ));
+
+    if (task.googleTaskId && task.googleTaskListId) {
+      updateGoogleTask(task.googleTaskId, task.googleTaskListId, { status: 'needsAction' });
+    }
+  };
+
+  const handleEditTaskSave = (taskId: string, newTitle: string, newDate: string, newTime: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    setTasks(prev => prev.map(t => 
+      t.id === taskId ? { ...t, title: newTitle, date: newDate, time: newTime } : t
+    ));
+    setEditingTask(null);
+
+    if (task.googleTaskId && task.googleTaskListId) {
+      const due = new Date(`${newDate}T${newTime}:00`).toISOString();
+      updateGoogleTask(task.googleTaskId, task.googleTaskListId, { title: newTitle, due });
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -335,10 +445,9 @@ export default function App() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95 }}
                   key={task.id}
-                  onClick={() => toggleTaskCompletion(task.id)}
-                  className="p-4 rounded-xl border cursor-pointer transition-all duration-200 bg-white border-blue-100 shadow-sm hover:shadow-md hover:border-blue-200"
+                  className="p-4 rounded-xl border transition-all duration-200 bg-white border-blue-100 shadow-sm hover:shadow-md hover:border-blue-200 flex justify-between items-start group"
                 >
-                  <div className="flex items-start gap-3">
+                  <div className="flex items-start gap-3 cursor-pointer flex-1" onClick={() => toggleTaskCompletion(task.id)}>
                     <div className="mt-0.5 rounded-full flex-shrink-0 w-5 h-5 flex items-center justify-center border transition-colors border-slate-300 group-hover:border-green-500">
                     </div>
                     <div>
@@ -357,6 +466,13 @@ export default function App() {
                       </div>
                     </div>
                   </div>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setEditingTask(task); }}
+                    className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                    title="Editar Atividade"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
                 </motion.div>
               ))}
             </AnimatePresence>
@@ -556,6 +672,13 @@ export default function App() {
             onClose={() => setShowPortfolio(false)}
             onDeleteTask={deleteTask}
             onRestoreTask={restoreTask}
+          />
+        )}
+        {editingTask && (
+          <EditTaskModal
+            task={editingTask}
+            onClose={() => setEditingTask(null)}
+            onSave={handleEditTaskSave}
           />
         )}
       </AnimatePresence>
