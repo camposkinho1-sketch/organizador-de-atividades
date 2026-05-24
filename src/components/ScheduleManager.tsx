@@ -231,27 +231,37 @@ export function ScheduleManager({ schedule, setSchedule, onClose }: ScheduleMana
                                   <button onClick={() => handleSave(dIdx, classIndex)} className="text-green-700 p-1 bg-green-200 rounded hover:bg-green-300 shadow-sm" title="Salvar">
                                     <Check size={14} />
                                   </button>
+                                  <button onClick={() => { setEditValue(''); handleSave(dIdx, classIndex); }} className="text-red-700 p-1 bg-red-200 rounded hover:bg-red-300 shadow-sm sm:hidden" title="Limpar">
+                                    <Eraser size={14} />
+                                  </button>
                                   <button onClick={() => setEditingCell(null)} className="text-slate-700 p-1 bg-slate-200 rounded hover:bg-slate-300 shadow-sm" title="Cancelar">
                                     <X size={14} />
                                   </button>
                                 </div>
                               </div>
                             ) : (
-                              <div className="h-full flex flex-col items-center justify-center relative p-1">
+                              <div 
+                                className="h-full flex flex-col items-center justify-center relative p-1 cursor-pointer"
+                                onClick={(e) => {
+                                  if ((e.target as HTMLElement).closest('button')) return;
+                                  setEditingCell({ dIdx, cIdx: classIndex }); 
+                                  setEditValue(val); 
+                                }}
+                              >
                                 {renderCellContent(val)}
                                 
-                                <div className="absolute inset-0 bg-white/95 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 transition-opacity pointer-events-none group-hover:pointer-events-auto rounded">
+                                <div className="absolute inset-0 bg-white/95 opacity-0 lg:group-hover:opacity-100 flex items-center justify-center gap-2 transition-opacity pointer-events-none lg:group-hover:pointer-events-auto rounded">
                                   <button 
-                                    onClick={() => { setEditingCell({ dIdx, cIdx: classIndex }); setEditValue(val); }}
-                                    className="p-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 shadow-sm border border-blue-200"
+                                    onClick={(e) => { e.stopPropagation(); setEditingCell({ dIdx, cIdx: classIndex }); setEditValue(val); }}
+                                    className="p-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 shadow-sm border border-blue-200 hidden lg:flex"
                                     title="Editar aula"
                                   >
                                     <Edit2 size={16} />
                                   </button>
                                   {val && (
                                     <button 
-                                      onClick={() => handleClear(dIdx, classIndex)}
-                                      className="p-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 shadow-sm border border-red-200"
+                                      onClick={(e) => { e.stopPropagation(); handleClear(dIdx, classIndex); }}
+                                      className="p-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 shadow-sm border border-red-200 hidden lg:flex"
                                       title="Limpar aula"
                                     >
                                       <Eraser size={16} />
