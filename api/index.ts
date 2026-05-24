@@ -29,6 +29,10 @@ const createTaskTool = {
           type: "string",
           description: "Horário da tarefa no formato HH:MM (ex: 20:00 ou 13:00)",
         },
+        notes: {
+          type: "string",
+          description: "Detalhes adicionais ou complemento da tarefa, se fornecido.",
+        }
       },
       required: ["title", "date", "time"],
     },

@@ -27,6 +27,7 @@ export type Task = {
   status: 'pending' | 'completed';
   googleTaskId?: string;
   googleTaskListId?: string;
+  notes?: string;
 };
 
 // We explicitely pass history to server.
@@ -52,7 +53,7 @@ export default function App() {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { googleAccessToken, signIn, logOut } = useAuth();
+  const { user, googleAccessToken, signIn, logOut } = useAuth();
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -115,7 +116,7 @@ export default function App() {
     }
   };
 
-  const syncToGoogleTasks = async (title: string, date: string, time: string) => {
+  const syncToGoogleTasks = async (title: string, date: string, time: string, notes?: string) => {
     if (!googleAccessToken) return { success: false, message: 'Google Tasks desconectado' };
     
     try {
@@ -149,7 +150,7 @@ export default function App() {
         body: JSON.stringify({
           title,
           due,
-          notes: 'Agendado pelo Guardião da Segurança do Trabalho'
+          notes: notes || 'Agendado pelo Guardião da Segurança do Trabalho'
         })
       });
       
@@ -168,7 +169,7 @@ export default function App() {
     let googleSyncMsg = '';
     
     if (googleAccessToken) {
-      const result = await syncToGoogleTasks(args.title, args.date, args.time);
+      const result = await syncToGoogleTasks(args.title, args.date, args.time, args.notes);
       if (result.success) {
          googleSyncMsg = ' (Sincronizado com Google Tasks)';
          googleTaskId = result.taskId;
@@ -186,6 +187,7 @@ export default function App() {
       date: args.date,
       time: args.time,
       status: 'pending',
+      notes: args.notes,
       googleTaskId,
       googleTaskListId
     };
@@ -333,18 +335,18 @@ export default function App() {
     }
   };
 
-  const handleEditTaskSave = (taskId: string, newTitle: string, newDate: string, newTime: string) => {
+  const handleEditTaskSave = (taskId: string, newTitle: string, newDate: string, newTime: string, newNotes: string) => {
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
 
     setTasks(prev => prev.map(t => 
-      t.id === taskId ? { ...t, title: newTitle, date: newDate, time: newTime } : t
+      t.id === taskId ? { ...t, title: newTitle, date: newDate, time: newTime, notes: newNotes } : t
     ));
     setEditingTask(null);
 
     if (task.googleTaskId && task.googleTaskListId) {
       const due = new Date(`${newDate}T${newTime}:00`).toISOString();
-      updateGoogleTask(task.googleTaskId, task.googleTaskListId, { title: newTitle, due });
+      updateGoogleTask(task.googleTaskId, task.googleTaskListId, { title: newTitle, due, notes: newNotes });
     }
   };
 
@@ -378,10 +380,10 @@ export default function App() {
   };
 
   const handleAppClick = () => {
-    // If the user is logged into Firebase but the Tasks token expired or is missing,
-    // intercept the first click to seamlessly reconnect, as it provides the required user gesture for popups.
-    const currentUser = auth.currentUser;
-    if (currentUser && !googleAccessToken) {
+    // Se o usuário estiver logado mas o token expirou,
+    // intercepta o clique para reconectar silenciosamente, 
+    // pois requer uma ação do usuário para abrir o popup.
+    if (user && !googleAccessToken) {
       const storedToken = localStorage.getItem('googleAccessToken');
       const expiry = localStorage.getItem('googleAccessTokenExpiry');
       if (!storedToken || !expiry || Date.now() >= parseInt(expiry, 10)) {
@@ -391,7 +393,7 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-screen bg-slate-50 text-slate-900 font-sans overflow-hidden" onClick={handleAppClick}>
+    <div className="flex h-screen bg-slate-50 text-slate-900 font-sans overflow-hidden" onClickCapture={handleAppClick}>
       
       {/* Mobile Overlay */}
       {showMobileSidebar && (
@@ -478,6 +480,11 @@ export default function App() {
                           {task.time}
                         </span>
                       </div>
+                      {task.notes && (
+                        <p className="mt-2 text-xs text-slate-500 whitespace-pre-wrap leading-relaxed border-l-2 border-blue-200 pl-2">
+                          {task.notes}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <button

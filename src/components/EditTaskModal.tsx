@@ -6,18 +6,19 @@ import { Task } from '../App';
 interface EditTaskModalProps {
   task: Task;
   onClose: () => void;
-  onSave: (taskId: string, newTitle: string, newDate: string, newTime: string) => void;
+  onSave: (taskId: string, newTitle: string, newDate: string, newTime: string, newNotes: string) => void;
 }
 
 export function EditTaskModal({ task, onClose, onSave }: EditTaskModalProps) {
   const [title, setTitle] = useState(task.title);
   const [date, setDate] = useState(task.date);
   const [time, setTime] = useState(task.time);
+  const [notes, setNotes] = useState(task.notes || '');
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !date || !time) return;
-    onSave(task.id, title, date, time);
+    onSave(task.id, title, date, time, notes);
   };
 
   return (
@@ -81,6 +82,19 @@ export function EditTaskModal({ task, onClose, onSave }: EditTaskModalProps) {
                 required
               />
             </div>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center gap-2">
+              <FileText className="w-4 h-4 text-slate-400" />
+              Complemento / Notas (Opcional)
+            </label>
+            <textarea 
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              placeholder="Adicione detalhes extras para sua tarefa..."
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 resize-none h-24"
+            />
           </div>
           
           <div className="mt-4 flex justify-end gap-3">
