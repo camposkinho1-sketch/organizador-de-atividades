@@ -326,10 +326,8 @@ export function GradesManager({ schedule, onClose }: GradesManagerProps) {
       if (g !== null) validGrades.push(g);
     });
 
-    if (validGrades.length === 0) return { average: 0, status: 'none', label: 'Sem notas' };
-
     const sum = validGrades.reduce((a, b) => a + b, 0);
-    const average = sum / validGrades.length;
+    const average = validGrades.length > 0 ? sum / validGrades.length : 0;
     
     const isComplete = validGrades.length === config.numberOfUnits;
     const requiredAverage = isComplete ? config.finalPassingAverage : config.unitPassingAverage;
@@ -337,15 +335,38 @@ export function GradesManager({ schedule, onClose }: GradesManagerProps) {
     let status = 'none';
     let label = '';
 
-    if (average >= requiredAverage) {
-      status = 'good';
-      label = isComplete ? 'Aprovado' : 'Na média';
+    if (validGrades.length > 0) {
+      if (average >= requiredAverage) {
+        status = 'good';
+        label = isComplete ? 'Aprovado' : 'Na média';
+      } else {
+        status = 'bad';
+        label = isComplete ? 'Reprovado / Final' : 'Abaixo da média';
+      }
     } else {
-      status = 'bad';
-      label = isComplete ? 'Reprovado / Final' : 'Abaixo da média';
+      label = 'Sem notas';
     }
 
-    return { average, status, label, isComplete };
+    // Calculations for points/grades needed to pass
+    const totalTargetPoints = config.finalPassingAverage * config.numberOfUnits;
+    const pointsNeeded = Math.max(0, totalTargetPoints - sum);
+    const remainingUnits = config.numberOfUnits - validGrades.length;
+    const avgNeededRemaining = remainingUnits > 0 ? (pointsNeeded / remainingUnits) : 0;
+    const alreadyPassed = sum >= totalTargetPoints;
+
+    return { 
+      average, 
+      status, 
+      label, 
+      isComplete,
+      sum,
+      totalTargetPoints,
+      pointsNeeded,
+      remainingUnits,
+      avgNeededRemaining,
+      alreadyPassed,
+      hasGrades: validGrades.length > 0
+    };
   };
 
   const handleSaveUnit = (subjectName: string, unitIndex: number, newUnit: UnitDetail) => {
@@ -492,12 +513,15 @@ export function GradesManager({ schedule, onClose }: GradesManagerProps) {
                     <th className="border-b border-slate-200 p-4 bg-slate-100 text-slate-700 font-bold text-center sticky top-0 z-10 w-40">
                       Situação
                     </th>
+                    <th className="border-b border-l border-slate-200 p-4 bg-slate-100 text-slate-700 font-bold text-center sticky top-0 z-10 w-48 border-l-slate-200">
+                      Falta para Passar
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {uniqueSubjects.length === 0 ? (
                     <tr>
-                      <td colSpan={config.numberOfUnits + 3} className="p-8 text-center text-slate-500">
+                      <td colSpan={config.numberOfUnits + 4} className="p-8 text-center text-slate-500">
                         Nenhuma matéria encontrada na grade horária.
                       </td>
                     </tr>
@@ -548,6 +572,41 @@ export function GradesManager({ schedule, onClose }: GradesManagerProps) {
                                   : 'bg-red-100 text-red-700 border-red-200'
                               }`}>
                                 {stats.label}
+                              </div>
+                            )}
+                          </td>
+
+                          <td className="p-4 bg-slate-50 text-center border-l border-slate-200">
+                            {stats.alreadyPassed ? (
+                              <div className="flex flex-col items-center justify-center">
+                                <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-green-100 text-green-700 border border-green-200 flex items-center gap-1 shadow-sm">
+                                  ✓ Passou!
+                                </span>
+                                <span className="text-[10px] text-slate-400 mt-1 font-semibold">
+                                  {stats.sum.toFixed(1)} pts acumulados
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="flex flex-col items-center justify-center">
+                                <span className="text-slate-700 font-bold text-sm">
+                                  Falta {stats.pointsNeeded.toFixed(1)} pts
+                                </span>
+                                {stats.remainingUnits > 0 ? (
+                                  <span className={`text-[11px] mt-0.5 font-medium ${
+                                    stats.avgNeededRemaining > 10 
+                                      ? 'text-red-500 font-semibold' 
+                                      : 'text-slate-500'
+                                  }`}>
+                                    {stats.remainingUnits === 1 
+                                      ? `Precisa de ${stats.pointsNeeded.toFixed(1)} na última`
+                                      : `Média de ${stats.avgNeededRemaining.toFixed(1)} / un.`
+                                    }
+                                  </span>
+                                ) : (
+                                  <span className="text-[11px] text-red-500 font-semibold mt-0.5">
+                                    Não alcançou a média
+                                  </span>
+                                )}
                               </div>
                             )}
                           </td>
