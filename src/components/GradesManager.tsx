@@ -330,13 +330,24 @@ export function GradesManager({ schedule, onClose }: GradesManagerProps) {
     const average = validGrades.length > 0 ? sum / validGrades.length : 0;
     
     const isComplete = validGrades.length === config.numberOfUnits;
-    const requiredAverage = isComplete ? config.finalPassingAverage : config.unitPassingAverage;
+
+    // Intelligent total target calculation based on whether they typed an average (<=10) or total points (>10)
+    const isTotalPointsMode = config.finalPassingAverage > 10;
+    const totalTargetPoints = isTotalPointsMode 
+      ? config.finalPassingAverage 
+      : config.finalPassingAverage * config.numberOfUnits;
+
+    const pointsNeeded = Math.max(0, totalTargetPoints - sum);
+    const remainingUnits = config.numberOfUnits - validGrades.length;
+    const avgNeededRemaining = remainingUnits > 0 ? (pointsNeeded / remainingUnits) : 0;
+    const alreadyPassed = sum >= totalTargetPoints;
 
     let status = 'none';
     let label = '';
 
     if (validGrades.length > 0) {
-      if (average >= requiredAverage) {
+      const isApproved = isComplete ? alreadyPassed : (average >= config.unitPassingAverage);
+      if (isApproved) {
         status = 'good';
         label = isComplete ? 'Aprovado' : 'Na média';
       } else {
@@ -346,13 +357,6 @@ export function GradesManager({ schedule, onClose }: GradesManagerProps) {
     } else {
       label = 'Sem notas';
     }
-
-    // Calculations for points/grades needed to pass
-    const totalTargetPoints = config.finalPassingAverage * config.numberOfUnits;
-    const pointsNeeded = Math.max(0, totalTargetPoints - sum);
-    const remainingUnits = config.numberOfUnits - validGrades.length;
-    const avgNeededRemaining = remainingUnits > 0 ? (pointsNeeded / remainingUnits) : 0;
-    const alreadyPassed = sum >= totalTargetPoints;
 
     return { 
       average, 
@@ -467,7 +471,6 @@ export function GradesManager({ schedule, onClose }: GradesManagerProps) {
                         type="number" 
                         step="0.1"
                         min="0"
-                        max="10"
                         value={config.unitPassingAverage}
                         onChange={e => updateUnitAverage(e.target.value)}
                         className="w-full border border-slate-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm font-medium"
@@ -475,16 +478,16 @@ export function GradesManager({ schedule, onClose }: GradesManagerProps) {
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-slate-600 mb-1 flex items-center gap-1 uppercase">
-                        Média Final Esperada
+                        Média Final / Pontos Totais
                       </label>
                       <input 
                         type="number" 
                         step="0.1"
                         min="0"
-                        max="10"
                         value={config.finalPassingAverage}
                         onChange={e => updateFinalAverage(e.target.value)}
                         className="w-full border border-slate-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm font-medium"
+                        placeholder="Ex: 7.0 ou 15"
                       />
                     </div>
                   </div>
