@@ -59,6 +59,18 @@ export default function App() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Helper to format date and time safely as RFC 3339 in local timezone
+  // Prevents tasks from having shifts of 3+ hours incorrectly by ensuring offset is explicit.
+  const formatRFC3339Local = (dateStr: string, timeStr: string) => {
+    const d = new Date(`${dateStr}T${timeStr}:00`);
+    const pad = (n: number) => n < 10 ? '0' + n : n;
+    const tzo = -d.getTimezoneOffset();
+    const dif = tzo >= 0 ? '+' : '-';
+    const tzh = pad(Math.floor(Math.abs(tzo) / 60));
+    const tzm = pad(Math.abs(tzo) % 60);
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}${dif}${tzh}:${tzm}`;
+  };
+
   // Sync from Google Tasks on load or token change
   useEffect(() => {
     const fetchGoogleTasks = async () => {
@@ -140,7 +152,7 @@ export default function App() {
       
       // 2. Create task
       // Date must be RFC 3339 timestamp string
-      const due = new Date(`${date}T${time}:00`).toISOString();
+      const due = formatRFC3339Local(date, time);
       const createRes = await fetch(`https://tasks.googleapis.com/tasks/v1/lists/${taskListId}/tasks`, {
         method: 'POST',
         headers: { 
@@ -150,7 +162,7 @@ export default function App() {
         body: JSON.stringify({
           title,
           due,
-          notes: notes || 'Agendado pelo Guardião da Segurança do Trabalho'
+          notes: `⏰ Horário: ${time}\n${notes || 'Agendado pelo Guardião Estudantil'}`
         })
       });
       
@@ -345,8 +357,12 @@ export default function App() {
     setEditingTask(null);
 
     if (task.googleTaskId && task.googleTaskListId) {
-      const due = new Date(`${newDate}T${newTime}:00`).toISOString();
-      updateGoogleTask(task.googleTaskId, task.googleTaskListId, { title: newTitle, due, notes: newNotes });
+      const due = formatRFC3339Local(newDate, newTime);
+      updateGoogleTask(task.googleTaskId, task.googleTaskListId, { 
+        title: newTitle, 
+        due, 
+        notes: `⏰ Horário: ${newTime}\n${newNotes || 'Agendado pelo Guardião Estudantil'}`
+      });
     }
   };
 
