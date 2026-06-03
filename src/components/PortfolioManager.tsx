@@ -1,8 +1,10 @@
 import React, { useMemo, useState } from 'react';
-import { X, Book, CheckCircle, Calendar as CalendarIcon, Clock, Trash } from 'lucide-react';
+import { X, Book, CheckCircle, Calendar as CalendarIcon, Clock, Trash, Folder } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { DaySchedule } from './ScheduleManager';
 import { Task } from '../App';
+import { useSyncState } from '../lib/useSync';
+import { GradesConfig } from './GradesManager';
 
 interface PortfolioManagerProps {
   schedule: DaySchedule[];
@@ -10,10 +12,13 @@ interface PortfolioManagerProps {
   onClose: () => void;
   onDeleteTask: (taskId: string) => void;
   onRestoreTask: (taskId: string) => void;
+  onUpdateTask?: (taskId: string, updates: Partial<Task>) => void;
 }
 
-export function PortfolioManager({ schedule, tasks, onClose, onDeleteTask, onRestoreTask }: PortfolioManagerProps) {
+export function PortfolioManager({ schedule, tasks, onClose, onDeleteTask, onRestoreTask, onUpdateTask }: PortfolioManagerProps) {
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
+  const [gradesConfig] = useSyncState<GradesConfig>('guardiao_grades', { numberOfUnits: 4 } as GradesConfig, 'grades_data');
+  const numUnits = gradesConfig?.numberOfUnits || 4;
 
   const uniqueSubjects = useMemo(() => {
     const subjects = new Set<string>();
@@ -67,6 +72,98 @@ export function PortfolioManager({ schedule, tasks, onClose, onDeleteTask, onRes
     (uniqueSubjects.find(s => (tasksBySubject.get(s)?.length || 0) > 0) || uniqueSubjects[0] || "Outros");
 
   const currentTasks = tasksBySubject.get(currentSubject) || [];
+
+  const groupedTasks = useMemo(() => {
+    const groups: Record<string, Task[]> = {};
+    for (let i = 0; i < numUnits; i++) {
+      groups[i.toString()] = [];
+    }
+    groups['outro'] = [];
+
+    currentTasks.forEach(t => {
+      if (t.unitIndex !== undefined && t.unitIndex >= 0 && t.unitIndex < numUnits) {
+        groups[t.unitIndex.toString()].push(t);
+      } else {
+        groups['outro'].push(t);
+      }
+    });
+    return groups;
+  }, [currentTasks, numUnits]);
+
+  const renderTask = (task: Task) => (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      key={task.id}
+      className="bg-white border text-left border-slate-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow flex flex-col lg:flex-row lg:items-center justify-between gap-4 group"
+    >
+      <div className="flex flex-col flex-1">
+        <div className="flex items-start gap-4">
+          <div className="mt-1 lg:mt-0 rounded-full w-8 h-8 flex items-center justify-center bg-green-100 text-green-600 flex-shrink-0">
+            <CheckCircle className="w-5 h-5" />
+          </div>
+          <div className="flex-1">
+            <h4 className="font-medium text-slate-800 text-base">{task.title}</h4>
+            <div className="flex items-center gap-4 mt-2 text-xs font-medium text-slate-500">
+              <span className="flex items-center gap-1.5 bg-slate-100 px-2 py-1 rounded-md">
+                <CalendarIcon className="w-3.5 h-3.5" />
+                {task.date}
+              </span>
+              <span className="flex items-center gap-1.5 bg-slate-100 px-2 py-1 rounded-md">
+                <Clock className="w-3.5 h-3.5" />
+                {task.time}
+              </span>
+            </div>
+            
+            {task.evidencePhotoBase64 && (
+                <div className="mt-4 border border-slate-200 rounded-lg overflow-hidden shrink-0 w-32 h-32 md:w-48 md:h-48 group/img">
+                  <a href={task.evidencePhotoBase64} target="_blank" rel="noreferrer" className="block w-full h-full">
+                    <img src={task.evidencePhotoBase64} alt="Comprovação" className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" />
+                  </a>
+                </div>
+            )}
+            
+            <div className="mt-3 flex items-center gap-2">
+              <Folder className="w-4 h-4 text-slate-400" />
+              <select
+                value={task.unitIndex !== undefined ? task.unitIndex.toString() : 'outro'}
+                onChange={(e) => {
+                  if (onUpdateTask) {
+                    const val = e.target.value;
+                    onUpdateTask(task.id, { unitIndex: val === 'outro' ? undefined : parseInt(val) });
+                  }
+                }}
+                className="text-xs bg-slate-50 border border-slate-200 text-slate-600 rounded-md py-1 px-2 focus:outline-none focus:ring-1 focus:ring-indigo-500 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <option value="outro">Geral / Sem Ciclo</option>
+                {Array.from({ length: numUnits }).map((_, i) => (
+                  <option key={i} value={i}>{i + 1}º Ciclo/Unidade</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div className="flex flex-col justify-start gap-2 mt-3 lg:mt-0 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity flex-shrink-0">
+        <button
+          onClick={() => onRestoreTask(task.id)}
+          className="p-2 text-sm font-medium text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-transparent"
+          title="Restaurar para a lista principal"
+        >
+          Restaurar
+        </button>
+        <button
+          onClick={() => onDeleteTask(task.id)}
+          className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+          title="Excluir permanentemente"
+        >
+          <Trash className="w-4 h-4" />
+        </button>
+      </div>
+    </motion.div>
+  );
 
   return (
     <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
@@ -138,7 +235,7 @@ export function PortfolioManager({ schedule, tasks, onClose, onDeleteTask, onRes
               </p>
             </div>
 
-            <div className="p-6 flex flex-col gap-4">
+            <div className="p-6 flex flex-col gap-8">
               {currentTasks.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-slate-400 border-2 border-dashed border-slate-100 rounded-2xl bg-slate-50/50">
                   <CheckCircle className="w-16 h-16 stroke-1 text-slate-300 mb-4" />
@@ -148,63 +245,35 @@ export function PortfolioManager({ schedule, tasks, onClose, onDeleteTask, onRes
                   </p>
                 </div>
               ) : (
-                <AnimatePresence>
-                  {currentTasks.map(task => (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.95 }}
-                      key={task.id}
-                      className="bg-white border text-left border-slate-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow flex flex-col lg:flex-row lg:items-center justify-between gap-4 group"
-                    >
-                      <div className="flex flex-col flex-1">
-                        <div className="flex items-start gap-4">
-                          <div className="mt-1 lg:mt-0 rounded-full w-8 h-8 flex items-center justify-center bg-green-100 text-green-600 flex-shrink-0">
-                            <CheckCircle className="w-5 h-5" />
-                          </div>
-                          <div className="flex-1">
-                            <h4 className="font-medium text-slate-800 text-base">{task.title}</h4>
-                            <div className="flex items-center gap-4 mt-2 text-xs font-medium text-slate-500">
-                              <span className="flex items-center gap-1.5 bg-slate-100 px-2 py-1 rounded-md">
-                                <CalendarIcon className="w-3.5 h-3.5" />
-                                {task.date}
-                              </span>
-                              <span className="flex items-center gap-1.5 bg-slate-100 px-2 py-1 rounded-md">
-                                <Clock className="w-3.5 h-3.5" />
-                                {task.time}
-                              </span>
-                            </div>
-                            
-                            {task.evidencePhotoBase64 && (
-                               <div className="mt-4 border border-slate-200 rounded-lg overflow-hidden shrink-0 w-32 h-32 md:w-48 md:h-48 group/img">
-                                 <a href={task.evidencePhotoBase64} target="_blank" rel="noreferrer" className="block w-full h-full">
-                                    <img src={task.evidencePhotoBase64} alt="Comprovação" className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" />
-                                 </a>
-                               </div>
-                            )}
-                          </div>
-                        </div>
+                <>
+                  {Array.from({ length: numUnits }).map((_, i) => {
+                    const tasksInUnit = groupedTasks[i.toString()] || [];
+                    if (tasksInUnit.length === 0) return null;
+                    return (
+                      <div key={i} className="flex flex-col gap-3">
+                        <h4 className="font-bold text-slate-700 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 self-start text-sm shadow-sm flex items-center gap-2">
+                          <Folder className="w-4 h-4 text-indigo-500" />
+                          {i + 1}º Ciclo/Unidade
+                        </h4>
+                        <AnimatePresence>
+                          {tasksInUnit.map(renderTask)}
+                        </AnimatePresence>
                       </div>
-                      
-                      <div className="flex flex-col justify-start gap-2 mt-3 lg:mt-0 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity flex-shrink-0">
-                        <button
-                          onClick={() => onRestoreTask(task.id)}
-                          className="p-2 text-sm font-medium text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-transparent"
-                          title="Restaurar para a lista principal"
-                        >
-                          Restaurar
-                        </button>
-                        <button
-                          onClick={() => onDeleteTask(task.id)}
-                          className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Excluir permanentemente"
-                        >
-                          <Trash className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
+                    );
+                  })}
+
+                  {(groupedTasks['outro']?.length ?? 0) > 0 && (
+                    <div className="flex flex-col gap-3">
+                      <h4 className="font-bold text-slate-700 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 self-start text-sm shadow-sm flex items-center gap-2">
+                        <Folder className="w-4 h-4 text-slate-400" />
+                        Geral / Sem Ciclo
+                      </h4>
+                      <AnimatePresence>
+                        {groupedTasks['outro'].map(renderTask)}
+                      </AnimatePresence>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>

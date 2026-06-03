@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, CheckCircle, Clock, Calendar as CalendarIcon, User, AlertCircle, Settings, GraduationCap, Menu, X, LogOut, Book, Paperclip, FileIcon, ImageIcon, Edit2, Key } from 'lucide-react';
+import { Send, CheckCircle, Clock, Calendar as CalendarIcon, User, AlertCircle, Settings, GraduationCap, Menu, X, LogOut, Book, Paperclip, FileIcon, ImageIcon, Edit2, Key, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ScheduleManager, DaySchedule, defaultSchedule } from './components/ScheduleManager';
 import { GradesManager } from './components/GradesManager';
@@ -29,8 +29,10 @@ export type Task = {
   status: 'pending' | 'completed' | 'needsAction';
   googleTaskId?: string;
   googleTaskListId?: string;
+  googleEventId?: string;
   notes?: string;
   evidencePhotoBase64?: string;
+  unitIndex?: number;
 };
 
 // We explicitely pass history to server.
@@ -142,7 +144,7 @@ export default function App() {
   };
 
   const syncToGoogleTasks = async (title: string, date: string, time: string, notes?: string) => {
-    if (!googleAccessToken) return { success: false, message: 'Google Tasks desconectado' };
+    if (!googleAccessToken) return { success: false, message: 'Google desconectado' };
     
     try {
       // 1. Get default list ID
@@ -181,7 +183,37 @@ export default function App() {
       
       if (!createRes.ok) throw new Error('Erro ao criar task no Google Tasks');
       const createData = await createRes.json();
-      return { success: true, message: 'Sucesso', taskId: createData.id, listId: taskListId };
+
+      // 3. Create Calendar Event as a workaround to get exact-time notifications
+      let googleEventId = undefined;
+      const tzoString = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const eventRes = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+        method: 'POST',
+        headers: { 
+          Authorization: `Bearer ${googleAccessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          summary: `[Tarefa] ${title}`,
+          description: `${notes || 'Agendado pelo Guardião Estudantil'}`,
+          start: { dateTime: due, timeZone: tzoString },
+          end: { dateTime: due, timeZone: tzoString },
+          reminders: { 
+            useDefault: false, 
+            overrides: [
+              { method: 'popup', minutes: 10 },
+              { method: 'popup', minutes: 0 }
+            ] 
+          }
+        })
+      });
+
+      if (eventRes.ok) {
+        const eventData = await eventRes.json();
+        googleEventId = eventData.id;
+      }
+
+      return { success: true, message: 'Sucesso', taskId: createData.id, listId: taskListId, eventId: googleEventId };
     } catch (error: any) {
       console.error("syncToGoogleTasks error:", error);
       return { success: false, message: error.message };
@@ -191,14 +223,16 @@ export default function App() {
   const handleCreateTask = async (args: any) => {
     let googleTaskId = undefined;
     let googleTaskListId = undefined;
+    let googleEventId = undefined;
     let googleSyncMsg = '';
     
     if (googleAccessToken) {
       const result = await syncToGoogleTasks(args.title, args.date, args.time, args.notes);
       if (result.success) {
-         googleSyncMsg = ' (Sincronizado com Google Tasks)';
+         googleSyncMsg = ' (Sincronizado com Google Tasks e Calendário)';
          googleTaskId = result.taskId;
          googleTaskListId = result.listId;
+         googleEventId = result.eventId;
       } else {
          googleSyncMsg = ` (ATENÇÃO: Falha ao sincronizar: ${result.message})`;
       }
@@ -214,7 +248,8 @@ export default function App() {
       status: 'pending',
       notes: args.notes,
       googleTaskId,
-      googleTaskListId
+      googleTaskListId,
+      googleEventId
     };
     setTasks(prev => [...prev, newTask]);
 
@@ -373,12 +408,22 @@ export default function App() {
     const task = tasks.find(t => t.id === taskId);
     setTasks(prev => prev.filter(t => t.id !== taskId));
     
-    // Attempt delete in Google Tasks
-    if (task?.googleTaskId && task?.googleTaskListId && googleAccessToken) {
-      fetch(`https://tasks.googleapis.com/tasks/v1/lists/${task.googleTaskListId}/tasks/${task.googleTaskId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${googleAccessToken}` }
-      }).catch(err => console.error(err));
+    if (task && googleAccessToken) {
+      // Attempt delete in Google Tasks
+      if (task.googleTaskId && task.googleTaskListId) {
+        fetch(`https://tasks.googleapis.com/tasks/v1/lists/${task.googleTaskListId}/tasks/${task.googleTaskId}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${googleAccessToken}` }
+        }).catch(err => console.error(err));
+      }
+
+      // Attempt delete in Google Calendar
+      if (task.googleEventId) {
+        fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${task.googleEventId}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${googleAccessToken}` }
+        }).catch(err => console.error(err));
+      }
     }
   };
 
@@ -394,6 +439,10 @@ export default function App() {
     }
   };
 
+  const updateTaskPartial = (taskId: string, updates: Partial<Task>) => {
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, ...updates } : t));
+  };
+
   const handleEditTaskSave = (taskId: string, newTitle: string, newDate: string, newTime: string, newNotes: string) => {
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
@@ -403,13 +452,31 @@ export default function App() {
     ));
     setEditingTask(null);
 
+    const due = formatRFC3339Local(newDate, newTime);
+
     if (task.googleTaskId && task.googleTaskListId) {
-      const due = formatRFC3339Local(newDate, newTime);
       updateGoogleTask(task.googleTaskId, task.googleTaskListId, { 
         title: newTitle, 
         due, 
         notes: `⏰ Horário: ${newTime}\n${newNotes || 'Agendado pelo Guardião Estudantil'}`
       });
+    }
+
+    if (task.googleEventId && googleAccessToken) {
+      const tzoString = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${task.googleEventId}`, {
+        method: 'PATCH',
+        headers: { 
+          Authorization: `Bearer ${googleAccessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          summary: `[Tarefa] ${newTitle}`,
+          description: `${newNotes || 'Agendado pelo Guardião Estudantil'}`,
+          start: { dateTime: due, timeZone: tzoString },
+          end: { dateTime: due, timeZone: tzoString }
+        })
+      }).catch(err => console.error("Failed to update Google Calendar event:", err));
     }
   };
 
@@ -550,13 +617,22 @@ export default function App() {
                       )}
                     </div>
                   </div>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setEditingTask(task); }}
-                    className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                    title="Editar Atividade"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setEditingTask(task); }}
+                      className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                      title="Editar Atividade"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }}
+                      className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                      title="Excluir Atividade"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </motion.div>
               ))}
             </AnimatePresence>
@@ -764,6 +840,7 @@ export default function App() {
             onClose={() => setShowPortfolio(false)}
             onDeleteTask={deleteTask}
             onRestoreTask={restoreTask}
+            onUpdateTask={updateTaskPartial}
           />
         )}
         {showApiSettings && (
