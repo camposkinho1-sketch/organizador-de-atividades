@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, CheckCircle, Clock, Calendar as CalendarIcon, User, AlertCircle, Settings, GraduationCap, Menu, X, LogOut, Book, Paperclip, FileIcon, ImageIcon, Edit2 } from 'lucide-react';
+import { Send, CheckCircle, Clock, Calendar as CalendarIcon, User, AlertCircle, Settings, GraduationCap, Menu, X, LogOut, Book, Paperclip, FileIcon, ImageIcon, Edit2, Key } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ScheduleManager, DaySchedule, defaultSchedule } from './components/ScheduleManager';
 import { GradesManager } from './components/GradesManager';
 import { PortfolioManager } from './components/PortfolioManager';
 import { EditTaskModal } from './components/EditTaskModal';
+import { ApiSettingsModal } from './components/ApiSettingsModal';
 import { AppLogo } from './components/Logo';
 import { useSyncState } from './lib/useSync';
 import { useAuth } from './lib/AuthContext';
@@ -47,6 +48,7 @@ export default function App() {
   const [showGrades, setShowGrades] = useState(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [showPortfolio, setShowPortfolio] = useState(false);
+  const [showApiSettings, setShowApiSettings] = useState(false);
   const [attachment, setAttachment] = useState<{file: File, base64: string} | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [schedule, setSchedule] = useSyncState<DaySchedule[]>('guardiao_schedule', defaultSchedule, 'schedule_data');
@@ -244,9 +246,15 @@ export default function App() {
         };
       }
 
+      const requestHeaders: any = { 'Content-Type': 'application/json' };
+      const customApiKey = localStorage.getItem('custom_api_key');
+      if (customApiKey) {
+        requestHeaders['x-api-key'] = customApiKey;
+      }
+
       let response = await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: requestHeaders,
         body: JSON.stringify(bodyData)
       });
 
@@ -274,9 +282,15 @@ export default function App() {
         }
         
         // Send function results back to the model to get the final text response
+        const requestHeaders: any = { 'Content-Type': 'application/json' };
+        const customApiKey = localStorage.getItem('custom_api_key');
+        if (customApiKey) {
+          requestHeaders['x-api-key'] = customApiKey;
+        }
+
         const secondResponse = await fetch('/api/chat', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: requestHeaders,
           body: JSON.stringify({
              history: [...historyFormatted, { role: 'user', parts: [{ text: userMsg }] }, { role: 'model', parts: [{ functionCall: responseData.functionCalls[0] }] }],
              message: functionResponseParts,
@@ -549,6 +563,14 @@ export default function App() {
           </div>
           <div className="flex items-center gap-1.5 md:gap-2 flex-shrink-0">
             <button 
+              onClick={() => setShowApiSettings(true)}
+              className="flex items-center gap-2 px-2 md:px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors text-sm font-medium"
+              title="Configurar Chave API"
+            >
+              <Key className="w-4 h-4 text-blue-600" />
+              <span className="hidden sm:inline">Chave</span>
+            </button>
+            <button 
               onClick={() => setShowGrades(true)}
               className="flex items-center gap-2 px-2 md:px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-transparent rounded-lg transition-colors text-sm font-medium"
               title="Boletim"
@@ -710,6 +732,9 @@ export default function App() {
             onDeleteTask={deleteTask}
             onRestoreTask={restoreTask}
           />
+        )}
+        {showApiSettings && (
+          <ApiSettingsModal onClose={() => setShowApiSettings(false)} />
         )}
         {editingTask && (
           <EditTaskModal

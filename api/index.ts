@@ -4,11 +4,6 @@ import OpenAI from "openai";
 const app = express();
 app.use(express.json({ limit: '10mb' }));
 
-const openai = new OpenAI({
-  baseURL: "https://openrouter.ai/api/v1",
-  apiKey: process.env.OPENROUTER_API_KEY || "dummy", 
-});
-
 const createTaskTool = {
   type: "function" as const,
   function: {
@@ -76,10 +71,19 @@ Sempre que o usuário mencionar uma atividade e uma matéria, você deve executa
 app.post("/api/chat", async (req, res) => {
   try {
     const { message, history, schedule, attachment } = req.body;
+    
+    // Check if the user provided a custom API key via the request headers
+    const customApiKey = req.headers['x-api-key'] as string;
+    const apiKeyToUse = customApiKey || process.env.OPENROUTER_API_KEY;
 
-    if (!process.env.OPENROUTER_API_KEY) {
-       return res.status(500).json({ error: "OPENROUTER_API_KEY is not configured on the server." });
+    if (!apiKeyToUse) {
+       return res.status(500).json({ error: "Nenhuma chave de API configurada. Por favor adicione uma nas configurações (ícone de Chave)." });
     }
+
+    const openai = new OpenAI({
+      baseURL: "https://openrouter.ai/api/v1",
+      apiKey: apiKeyToUse, 
+    });
 
     const openaiMessages: any[] = [
       {
