@@ -5,6 +5,7 @@ import { ScheduleManager, DaySchedule, defaultSchedule } from './components/Sche
 import { GradesManager } from './components/GradesManager';
 import { PortfolioManager } from './components/PortfolioManager';
 import { EditTaskModal } from './components/EditTaskModal';
+import { CompleteTaskModal } from './components/CompleteTaskModal';
 import { ApiSettingsModal } from './components/ApiSettingsModal';
 import { AppLogo } from './components/Logo';
 import { useSyncState } from './lib/useSync';
@@ -25,10 +26,11 @@ export type Task = {
   title: string;
   date: string;
   time: string;
-  status: 'pending' | 'completed';
+  status: 'pending' | 'completed' | 'needsAction';
   googleTaskId?: string;
   googleTaskListId?: string;
   notes?: string;
+  evidencePhotoBase64?: string;
 };
 
 // We explicitely pass history to server.
@@ -51,6 +53,7 @@ export default function App() {
   const [showApiSettings, setShowApiSettings] = useState(false);
   const [attachment, setAttachment] = useState<{file: File, base64: string} | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [completingTask, setCompletingTask] = useState<Task | null>(null);
   const [schedule, setSchedule] = useSyncState<DaySchedule[]>('guardiao_schedule', defaultSchedule, 'schedule_data');
   const chatEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -100,8 +103,16 @@ export default function App() {
              const remoteCompleted = remoteTask.status === 'completed';
              // Also could sync date/time from remote if it changed, but let's just sync completion for now,
              // or sync title too.
-             const newStatus = remoteCompleted ? 'completed' : 'pending';
+             const newStatus = (remoteCompleted && localTask.evidencePhotoBase64) ? 'completed' : 'pending';
+             
+             // If it was completed remotely but we reverted it to pending here (no photo), 
+             // ideally we'd uncheck it on Google Tasks to, but doing it in a fetch loop might be risky.
+             // We'll trust the local source of truth over the remote one for completion status if photo is missing.
              if (localTask.status !== newStatus || localTask.title !== remoteTask.title) {
+                if (remoteCompleted && !localTask.evidencePhotoBase64 && localTask.googleTaskId && localTask.googleTaskListId) {
+                  // Revert remote completetion if missing photo locally
+                  updateGoogleTask(localTask.googleTaskId, localTask.googleTaskListId, { status: 'needsAction' });
+                }
                 return { ...localTask, status: newStatus, title: remoteTask.title || localTask.title };
              }
           }
@@ -259,7 +270,8 @@ export default function App() {
       });
 
       if (!response.ok) {
-        throw new Error('Falha ao comunicar com o servidor');
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Falha ao comunicar com o servidor');
       }
 
       const responseData = await response.json();
@@ -304,7 +316,8 @@ export default function App() {
              setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', content: secondData.text }]);
            }
         } else {
-           throw new Error('Falha ao comunicar com o servidor (segunda etapa)');
+           const errData = await secondResponse.json().catch(() => ({}));
+           throw new Error(errData.error || 'Falha ao comunicar com o servidor (segunda etapa)');
         }
       } else if (responseData.text) {
         setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', content: responseData.text }]);
@@ -322,17 +335,37 @@ export default function App() {
     }
   };
 
+  const handleCompleteTaskWithEvidence = (taskId: string, evidencePhotoBase64: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+    
+    setTasks(prev => prev.map(t => 
+      t.id === taskId ? { ...t, status: 'completed', evidencePhotoBase64 } : t
+    ));
+
+    if (task.googleTaskId && task.googleTaskListId) {
+      updateGoogleTask(task.googleTaskId, task.googleTaskListId, { status: 'completed' });
+    }
+    
+    setCompletingTask(null);
+  };
+
   const toggleTaskCompletion = (taskId: string) => {
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
     
-    const newStatus = task.status === 'completed' ? 'pending' : 'completed';
-    setTasks(prev => prev.map(t => 
-      t.id === taskId ? { ...t, status: newStatus } : t
-    ));
+    if (task.status !== 'completed') {
+      // Open modal to require photo instead of completing directly
+      setCompletingTask(task);
+    } else {
+      // Revert to pending
+      setTasks(prev => prev.map(t => 
+        t.id === taskId ? { ...t, status: 'pending', evidencePhotoBase64: undefined } : t
+      ));
 
-    if (task.googleTaskId && task.googleTaskListId) {
-      updateGoogleTask(task.googleTaskId, task.googleTaskListId, { status: newStatus === 'completed' ? 'completed' : 'needsAction' });
+      if (task.googleTaskId && task.googleTaskListId) {
+        updateGoogleTask(task.googleTaskId, task.googleTaskListId, { status: 'needsAction' });
+      }
     }
   };
 
@@ -741,6 +774,13 @@ export default function App() {
             task={editingTask}
             onClose={() => setEditingTask(null)}
             onSave={handleEditTaskSave}
+          />
+        )}
+        {completingTask && (
+          <CompleteTaskModal
+            task={completingTask}
+            onClose={() => setCompletingTask(null)}
+            onComplete={handleCompleteTaskWithEvidence}
           />
         )}
       </AnimatePresence>

@@ -194,10 +194,14 @@ app.post("/api/chat", async (req, res) => {
   } catch (error: any) {
     console.error("OpenRouter API Error:", error);
     let message = "Falha ao gerar conteúdo.";
-    if (error.status === 402) {
-      message = "Créditos insuficientes no OpenRouter. Verifique sua conta.";
+    if (error.status === 402 || (error.message && error.message.includes("402"))) {
+      message = "Créditos insuficientes. Sua chave de API configurada não possui saldo para gerar a resposta. Por favor, acesse as configurações (ícone de Chave) e insira uma chave válida com créditos, ou adicione créditos à sua conta.";
     } else if (error.message) {
-      message = error.message;
+      if (error.message.includes("401") || error.message.includes("Incorrect API key")) {
+        message = "Chave de API inválida. Por favor, verifique a chave inserida nas configurações (ícone de Chave).";
+      } else {
+        message = error.message;
+      }
     }
     res.status(error.status || 500).json({ error: message });
   }

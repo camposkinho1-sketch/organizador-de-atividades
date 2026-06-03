@@ -157,26 +157,36 @@ export function PortfolioManager({ schedule, tasks, onClose, onDeleteTask, onRes
                       key={task.id}
                       className="bg-white border text-left border-slate-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow flex flex-col lg:flex-row lg:items-center justify-between gap-4 group"
                     >
-                      <div className="flex items-start gap-4">
-                        <div className="mt-1 lg:mt-0 rounded-full w-8 h-8 flex items-center justify-center bg-green-100 text-green-600 flex-shrink-0">
-                          <CheckCircle className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <h4 className="font-medium text-slate-800 text-base">{task.title}</h4>
-                          <div className="flex items-center gap-4 mt-2 text-xs font-medium text-slate-500">
-                            <span className="flex items-center gap-1.5 bg-slate-100 px-2 py-1 rounded-md">
-                              <CalendarIcon className="w-3.5 h-3.5" />
-                              {task.date}
-                            </span>
-                            <span className="flex items-center gap-1.5 bg-slate-100 px-2 py-1 rounded-md">
-                              <Clock className="w-3.5 h-3.5" />
-                              {task.time}
-                            </span>
+                      <div className="flex flex-col flex-1">
+                        <div className="flex items-start gap-4">
+                          <div className="mt-1 lg:mt-0 rounded-full w-8 h-8 flex items-center justify-center bg-green-100 text-green-600 flex-shrink-0">
+                            <CheckCircle className="w-5 h-5" />
+                          </div>
+                          <div className="flex-1">
+                            <h4 className="font-medium text-slate-800 text-base">{task.title}</h4>
+                            <div className="flex items-center gap-4 mt-2 text-xs font-medium text-slate-500">
+                              <span className="flex items-center gap-1.5 bg-slate-100 px-2 py-1 rounded-md">
+                                <CalendarIcon className="w-3.5 h-3.5" />
+                                {task.date}
+                              </span>
+                              <span className="flex items-center gap-1.5 bg-slate-100 px-2 py-1 rounded-md">
+                                <Clock className="w-3.5 h-3.5" />
+                                {task.time}
+                              </span>
+                            </div>
+                            
+                            {task.evidencePhotoBase64 && (
+                               <div className="mt-4 border border-slate-200 rounded-lg overflow-hidden shrink-0 w-32 h-32 md:w-48 md:h-48 group/img">
+                                 <a href={task.evidencePhotoBase64} target="_blank" rel="noreferrer" className="block w-full h-full">
+                                    <img src={task.evidencePhotoBase64} alt="Comprovação" className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" />
+                                 </a>
+                               </div>
+                            )}
                           </div>
                         </div>
                       </div>
                       
-                      <div className="flex items-center gap-2 mt-3 lg:mt-0 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
+                      <div className="flex flex-col justify-start gap-2 mt-3 lg:mt-0 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity flex-shrink-0">
                         <button
                           onClick={() => onRestoreTask(task.id)}
                           className="p-2 text-sm font-medium text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-transparent"

@@ -51,8 +51,11 @@ export function useSyncState<T>(key: string, initialValue: T, column: string) {
       localStorage.setItem(key, JSON.stringify(computedValue));
 
       if (sessionUser) {
+        // Sanitize data to remove undefined fields which Firestore rejects
+        const sanitizedValue = computedValue === undefined ? null : JSON.parse(JSON.stringify(computedValue));
+        
         const payload = {
-          [column]: computedValue,
+          [column]: sanitizedValue,
           updated_at: serverTimestamp()
         };
         
