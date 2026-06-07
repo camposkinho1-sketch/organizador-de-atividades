@@ -24,12 +24,28 @@
           "description": "Firestore server timestamp"
         }
       }
+    },
+    "Attachment": {
+      "title": "Attachment",
+      "description": "A single attachment for a task (image, pdf, link)",
+      "type": "object",
+      "properties": {
+        "taskId": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string" },
+        "url": { "type": "string" },
+        "base64": { "type": "string" }
+      }
     }
   },
   "firestore": {
     "user_data/{userId}": {
       "schema": "UserData",
       "description": "User specific data"
+    },
+    "user_data/{userId}/attachments/{attachmentId}": {
+      "schema": "Attachment",
+      "description": "Attachments for user tasks"
     }
   }
 }

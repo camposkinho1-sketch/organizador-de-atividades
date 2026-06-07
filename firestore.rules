@@ -33,6 +33,17 @@ service cloud.firestore {
       );
     }
 
+    // Validation Blueprint for Attachment
+    function isValidAttachment(data) {
+      return (
+        ('taskId' in data && data.taskId is string) &&
+        ('name' in data && data.name is string) &&
+        ('type' in data && data.type is string) &&
+        (!('url' in data) || data.url is string) &&
+        (!('base64' in data) || data.base64 is string)
+      );
+    }
+
     match /user_data/{userId} {
       allow read: if isOwner(userId);
       
@@ -45,6 +56,20 @@ service cloud.firestore {
       );
       
       allow delete: if isOwner(userId);
+
+      match /attachments/{attachmentId} {
+        allow read: if isOwner(userId);
+        
+        allow create: if isOwner(userId) && isValidAttachment(incoming());
+        
+        allow update: if isOwner(userId) && isValidAttachment(incoming()) && (
+          incoming().diff(existing()).affectedKeys().hasAny([
+            'taskId', 'name', 'type', 'url', 'base64'
+          ])
+        );
+        
+        allow delete: if isOwner(userId);
+      }
     }
   }
 }
