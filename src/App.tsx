@@ -53,9 +53,10 @@ export default function App() {
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [showPortfolio, setShowPortfolio] = useState(false);
   const [showApiSettings, setShowApiSettings] = useState(false);
-  const [attachment, setAttachment] = useState<{file: File, base64: string} | null>(null);
+  const [attachments, setAttachments] = useState<{file: File, base64: string}[]>([]);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [completingTask, setCompletingTask] = useState<Task | null>(null);
+  const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
   const [schedule, setSchedule] = useSyncState<DaySchedule[]>('guardiao_schedule', defaultSchedule, 'schedule_data');
   const chatEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -258,16 +259,16 @@ export default function App() {
 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if ((!input.trim() && !attachment) || isLoading) return;
+    if ((!input.trim() && attachments.length === 0) || isLoading) return;
 
-    const userMsg = input.trim() || 'Processar arquivo anexo';
+    const userMsg = input.trim() || 'Processar arquivo' + (attachments.length > 1 ? 's anexos' : ' anexo');
     setInput('');
-    const currentAttachment = attachment;
-    setAttachment(null);
+    const currentAttachments = [...attachments];
+    setAttachments([]);
     
     let displayMessage = userMsg;
-    if (currentAttachment) {
-      displayMessage += `\n[Anexo: ${currentAttachment.file.name}]`;
+    if (currentAttachments.length > 0) {
+      displayMessage += `\n[Anexos: ${currentAttachments.map(a => a.file.name).join(', ')}]`;
     }
     setMessages(prev => [...prev, { id: Date.now().toString(), role: 'user', content: displayMessage }]);
     setIsLoading(true);
@@ -284,12 +285,12 @@ export default function App() {
         schedule
       };
 
-      if (currentAttachment) {
-        bodyData.attachment = {
-          name: currentAttachment.file.name,
-          type: currentAttachment.file.type,
-          data: currentAttachment.base64
-        };
+      if (currentAttachments.length > 0) {
+        bodyData.attachments = currentAttachments.map(att => ({
+          name: att.file.name,
+          type: att.file.type,
+          data: att.base64
+        }));
       }
 
       const requestHeaders: any = { 'Content-Type': 'application/json' };
@@ -404,7 +405,11 @@ export default function App() {
     }
   };
 
-  const deleteTask = (taskId: string) => {
+  const promptDeleteTask = (taskId: string) => {
+    setTaskToDelete(taskId);
+  };
+
+  const confirmDeleteTask = (taskId: string) => {
     const task = tasks.find(t => t.id === taskId);
     setTasks(prev => prev.filter(t => t.id !== taskId));
     
@@ -481,32 +486,47 @@ export default function App() {
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-      alert("Arquivo muito grande. O limite máximo é 5MB.");
-      return;
-    }
+    const newAttachments: {file: File, base64: string}[] = [];
 
-    const validTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
-    if (!validTypes.includes(file.type)) {
-      alert("Formato não suportado. Por favor, envie uma imagem ou PDF.");
-      return;
-    }
+    const processFile = (file: File): Promise<void> => {
+      return new Promise((resolve) => {
+        if (file.size > 5 * 1024 * 1024) {
+          alert(`O arquivo ${file.name} é muito grande. O limite máximo é 5MB.`);
+          resolve();
+          return;
+        }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        setAttachment({ file, base64: reader.result });
-      }
+        const isImage = file.type.startsWith('image/') || /\.(jpg|jpeg|png|webp|gif|heic)$/i.test(file.name);
+        const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+
+        if (!isImage && !isPdf) {
+          alert(`Formato não suportado para o arquivo ${file.name}. Por favor, envie uma imagem ou PDF.`);
+          resolve();
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = () => {
+          if (typeof reader.result === 'string') {
+            newAttachments.push({ file, base64: reader.result });
+          }
+          resolve();
+        };
+        reader.readAsDataURL(file);
+      });
     };
-    reader.readAsDataURL(file);
-    
-    // reset input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+
+    Promise.all(files.map(processFile)).then(() => {
+      if (newAttachments.length > 0) {
+        setAttachments(prev => [...prev, ...newAttachments]);
+      }
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    });
   };
 
   const handleAppClick = () => {
@@ -626,7 +646,7 @@ export default function App() {
                       <Edit2 className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }}
+                      onClick={(e) => { e.stopPropagation(); promptDeleteTask(task.id); }}
                       className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
                       title="Excluir Atividade"
                     >
@@ -761,29 +781,34 @@ export default function App() {
         </div>
 
         <div className="p-4 bg-white border-t border-slate-200 w-full z-10 sticky bottom-0 flex flex-col items-center">
-          {attachment && (
-            <div className="max-w-3xl w-full mb-3 flex items-center justify-between bg-blue-50 border border-blue-100 p-2.5 rounded-lg shadow-sm">
-              <div className="flex items-center gap-3 overflow-hidden">
-                <div className="bg-blue-100 p-2 rounded-md text-blue-700">
-                  {attachment.file.type.startsWith('image/') ? <ImageIcon className="w-5 h-5" /> : <FileIcon className="w-5 h-5" />}
+          {attachments.length > 0 && (
+            <div className="max-w-3xl w-full mb-3 flex flex-wrap gap-2">
+              {attachments.map((att, idx) => (
+                <div key={idx} className="flex items-center justify-between bg-blue-50 border border-blue-100 p-2 rounded-lg shadow-sm">
+                  <div className="flex items-center gap-2 overflow-hidden max-w-[150px] sm:max-w-[200px]">
+                    <div className="text-blue-700">
+                      {att.file.type.startsWith('image/') ? <ImageIcon className="w-4 h-4" /> : <FileIcon className="w-4 h-4" />}
+                    </div>
+                    <div className="truncate text-xs font-medium text-slate-700">
+                      {att.file.name}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setAttachments(prev => prev.filter((_, i) => i !== idx))}
+                    className="ml-2 p-1 text-slate-400 hover:text-red-500 hover:bg-slate-200 rounded-full transition-colors"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
                 </div>
-                <div className="truncate text-sm font-medium text-slate-700">
-                  {attachment.file.name}
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setAttachment(null)}
-                className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-slate-200 rounded-full transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
+              ))}
             </div>
           )}
           
           <form onSubmit={sendMessage} className="max-w-3xl w-full mx-auto relative flex items-center">
             <input
               type="file"
+              multiple
               ref={fileInputRef}
               onChange={handleFileChange}
               accept="image/*,.pdf"
@@ -807,7 +832,7 @@ export default function App() {
             />
             <button 
               type="submit" 
-              disabled={(!input.trim() && !attachment) || isLoading}
+              disabled={(!input.trim() && attachments.length === 0) || isLoading}
               className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 bg-blue-600 text-white rounded-full hover:bg-blue-700 disabled:bg-slate-300 disabled:text-slate-500 transition-colors shadow-sm"
             >
               <Send className="w-5 h-5" />
@@ -838,7 +863,7 @@ export default function App() {
             schedule={schedule}
             tasks={tasks}
             onClose={() => setShowPortfolio(false)}
-            onDeleteTask={deleteTask}
+            onDeleteTask={promptDeleteTask}
             onRestoreTask={restoreTask}
             onUpdateTask={updateTaskPartial}
           />
@@ -846,6 +871,43 @@ export default function App() {
         {showApiSettings && (
           <ApiSettingsModal onClose={() => setShowApiSettings(false)} />
         )}
+        
+        {taskToDelete && (
+          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-2xl p-6 shadow-xl w-full max-w-sm text-center"
+            >
+              <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Trash2 className="w-8 h-8" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-800 mb-2">Excluir Lembrete</h3>
+              <p className="text-slate-600 mb-6 font-medium">Você tem certeza que deseja excluir este lembrete?</p>
+              <div className="flex justify-center gap-3">
+                <button
+                  onClick={() => setTaskToDelete(null)}
+                  className="px-4 py-2 hover:bg-slate-100 text-slate-700 font-medium rounded-lg transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => {
+                    if (taskToDelete) {
+                      confirmDeleteTask(taskToDelete);
+                    }
+                    setTaskToDelete(null);
+                  }}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors"
+                >
+                  Sim, excluir
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
         {editingTask && (
           <EditTaskModal
             task={editingTask}

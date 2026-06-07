@@ -2,7 +2,8 @@ import express from "express";
 import OpenAI from "openai";
 
 const app = express();
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 const createTaskTool = {
   type: "function" as const,
@@ -70,7 +71,7 @@ Sempre que o usuário mencionar uma atividade e uma matéria, você deve executa
 
 app.post("/api/chat", async (req, res) => {
   try {
-    const { message, history, schedule, attachment } = req.body;
+    const { message, history, schedule, attachments } = req.body;
     
     // Check if the user provided a custom API key via the request headers
     const customApiKey = req.headers['x-api-key'] as string;
@@ -136,28 +137,28 @@ app.post("/api/chat", async (req, res) => {
         }
       }
     } else {
-      if (attachment) {
-        let textContent = message;
-        const contentArr: any[] = [];
-        
-        if (attachment.type === "application/pdf") {
-          try {
-            const pdfParse = (await import("pdf-parse")).default;
-            const base64Data = attachment.data.split(',')[1] || attachment.data;
-            const buffer = Buffer.from(base64Data, "base64");
-            const pdfData = await pdfParse(buffer);
-            textContent += `\n\n[Conteúdo Extraído do PDF "${attachment.name}"]:\n${pdfData.text}`;
-          } catch (e) {
-            console.error("PDF Parsing error:", e);
-            textContent += `\n\n[Erro ao tentar ler o PDF "${attachment.name}"]`;
+      let textContent = message;
+      const contentArr: any[] = [];
+
+      if (attachments && Array.isArray(attachments) && attachments.length > 0) {
+        for (const attachment of attachments) {
+          if (attachment.type === "application/pdf") {
+            try {
+              const pdfParse = (await import("pdf-parse")).default;
+              const base64Data = attachment.data.split(',')[1] || attachment.data;
+              const buffer = Buffer.from(base64Data, "base64");
+              const pdfData = await pdfParse(buffer);
+              textContent += `\n\n[Conteúdo Extraído do PDF "${attachment.name}"]:\n${pdfData.text}`;
+            } catch (e) {
+              console.error("PDF Parsing error:", e);
+              textContent += `\n\n[Erro ao tentar ler o PDF "${attachment.name}"]`;
+            }
+          } else if (attachment.type.startsWith("image/")) {
+            contentArr.push({ type: "image_url", image_url: { url: attachment.data } });
           }
-          contentArr.push({ type: "text", text: textContent });
-        } else if (attachment.type.startsWith("image/")) {
-          contentArr.push({ type: "text", text: textContent });
-          contentArr.push({ type: "image_url", image_url: { url: attachment.data } });
-        } else {
-          contentArr.push({ type: "text", text: textContent });
         }
+
+        contentArr.unshift({ type: "text", text: textContent });
         
         openaiMessages.push({
           role: "user",

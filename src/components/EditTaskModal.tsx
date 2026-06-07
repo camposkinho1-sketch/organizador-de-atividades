@@ -22,6 +22,7 @@ export function EditTaskModal({ task, onClose, onSave }: EditTaskModalProps) {
   const [showLinkInput, setShowLinkInput] = useState(false);
   const [newLinkUrl, setNewLinkUrl] = useState('');
   const [newLinkName, setNewLinkName] = useState('');
+  const [attachmentToDelete, setAttachmentToDelete] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -48,8 +49,17 @@ export function EditTaskModal({ task, onClose, onSave }: EditTaskModalProps) {
 
     setIsUploading(true);
     for (const file of files) {
-      if (file.size > 2 * 1024 * 1024) {
-        alert(`O arquivo ${file.name} é muito grande. O limite máximo é 2MB por arquivo para sincronização.`);
+      const isImage = file.type.startsWith('image/') || /\.(jpg|jpeg|png|webp|gif|heic)$/i.test(file.name);
+      const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+      const type = isImage ? 'image' : isPdf ? 'pdf' : 'other';
+
+      if (!isImage && !isPdf) {
+         alert(`Formato não suportado para ${file.name}`);
+         continue;
+      }
+
+      if (isPdf && file.size > 700 * 1024) {
+        alert(`O PDF ${file.name} é muito grande. O limite é 700KB para sincronização.`);
         continue;
       }
 
@@ -57,20 +67,22 @@ export function EditTaskModal({ task, onClose, onSave }: EditTaskModalProps) {
         const reader = new FileReader();
         reader.onload = async () => {
           if (typeof reader.result === 'string') {
-            const isImage = file.type.startsWith('image/');
-            const isPdf = file.type === 'application/pdf';
-            const type = isImage ? 'image' : isPdf ? 'pdf' : 'other';
-            
+            let finalBase64 = reader.result;
+
+            if (isImage) {
+              finalBase64 = await compressImage(finalBase64);
+            }
+
             try {
               const newAttachment = await saveTaskAttachment(task.id, {
                 name: file.name,
                 type,
-                base64: reader.result
+                base64: finalBase64
               });
               setAttachments(prev => [...prev, newAttachment]);
             } catch (err) {
               console.error("Erro ao salvar anexo", err);
-              alert(`Falha ao salvar o anexo ${file.name}.`);
+              alert(`Falha ao salvar o anexo ${file.name}. É possível que o arquivo seja muito grande.`);
             }
           }
           resolve();
@@ -82,6 +94,38 @@ export function EditTaskModal({ task, onClose, onSave }: EditTaskModalProps) {
     
     if (fileInputRef.current) fileInputRef.current.value = '';
     setIsUploading(false);
+  };
+
+  const compressImage = (base64Str: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.src = base64Str;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 1200;
+        const MAX_HEIGHT = 1200;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.6));
+      };
+      img.onerror = () => resolve(base64Str);
+    });
   };
 
   const handleAddLink = async () => {
@@ -113,9 +157,7 @@ export function EditTaskModal({ task, onClose, onSave }: EditTaskModalProps) {
     }
   };
 
-  const handleDeleteAttachment = async (attachmentId: string) => {
-    if (!window.confirm("Deseja realmente excluir este anexo?")) return;
-    
+  const confirmDeleteAttachment = async (attachmentId: string) => {
     try {
       await deleteTaskAttachment(attachmentId);
       setAttachments(prev => prev.filter(a => a.id !== attachmentId));
@@ -300,7 +342,7 @@ export function EditTaskModal({ task, onClose, onSave }: EditTaskModalProps) {
                           <FileText className="w-4 h-4" />
                         </a>
                       )}
-                      <button type="button" onClick={() => handleDeleteAttachment(att.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Excluir anexo">
+                      <button type="button" onClick={() => setAttachmentToDelete(att.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" title="Excluir anexo">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -329,6 +371,45 @@ export function EditTaskModal({ task, onClose, onSave }: EditTaskModalProps) {
           </button>
         </div>
       </motion.div>
+
+      {/* Confirmação de exclusão do anexo */}
+      {attachmentToDelete && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-[110]">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="bg-white rounded-2xl p-6 shadow-xl w-full max-w-xs text-center"
+          >
+            <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <h3 className="text-lg font-bold text-slate-800 mb-2">Excluir Anexo</h3>
+            <p className="text-sm text-slate-600 mb-6 font-medium">Tem certeza que deseja remover este anexo?</p>
+            <div className="flex justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => setAttachmentToDelete(null)}
+                className="px-4 py-2 text-sm hover:bg-slate-100 text-slate-700 font-medium rounded-lg transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (attachmentToDelete) {
+                    confirmDeleteAttachment(attachmentToDelete);
+                  }
+                  setAttachmentToDelete(null);
+                }}
+                className="px-4 py-2 text-sm bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors"
+              >
+                Sim, excluir
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }
