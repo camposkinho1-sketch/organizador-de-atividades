@@ -148,46 +148,27 @@ export default function App() {
     if (!googleAccessToken) return { success: false, message: 'Google desconectado' };
     
     try {
-      // 1. Get default list ID
-      const listsRes = await fetch('https://tasks.googleapis.com/tasks/v1/users/@me/lists', {
-        headers: { Authorization: `Bearer ${googleAccessToken}` }
-      });
-      if (!listsRes.ok) {
-        const errorText = await listsRes.text();
-        console.error("Erro na API Tasks:", errorText);
-        if (listsRes.status === 401) {
-          throw new Error('Acesso expirado. Por favor, conecte-se com o Google novamente.');
-        }
-        if (listsRes.status === 403) {
-          throw new Error('A API do Google Tasks NÃO ESTÁ ATIVADA. Você precisa acessar o Google Cloud Console do seu projeto Firebase e ativar a "Google Tasks API" para funcionar.');
-        }
-        throw new Error('Não foi possível obter listas do Google Tasks');
-      }
-      const listsData = await listsRes.json();
-      const taskListId = listsData.items[0].id;
+      // 1. & 2. Google Tasks API não suporta horário (descarta e seta como Dia Inteiro).
+      // Por solicitação de funcionamento do tempo, ignoramos o Google Tasks e criamos APENAS no Google Calendar.
       
-      // 2. Create task
-      // Date must be RFC 3339 timestamp string
-      const due = formatRFC3339Local(date, time);
-      const createRes = await fetch(`https://tasks.googleapis.com/tasks/v1/lists/${taskListId}/tasks`, {
-        method: 'POST',
-        headers: { 
-          Authorization: `Bearer ${googleAccessToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          title,
-          due,
-          notes: `⏰ Horário: ${time}\n${notes || 'Agendado pelo Guardião Estudantil'}`
-        })
-      });
-      
-      if (!createRes.ok) throw new Error('Erro ao criar task no Google Tasks');
-      const createData = await createRes.json();
-
-      // 3. Create Calendar Event as a workaround to get exact-time notifications
       let googleEventId = undefined;
       const tzoString = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      
+      const startDate = new Date(`${date}T${time}:00`);
+      const endDate = new Date(startDate.getTime() + 30 * 60000);
+      
+      const pad = (n: number) => n < 10 ? '0' + n : n;
+      const tzo = -startDate.getTimezoneOffset();
+      const dif = tzo >= 0 ? '+' : '-';
+      const tzh = pad(Math.floor(Math.abs(tzo) / 60));
+      const tzm = pad(Math.abs(tzo) % 60);
+      const tzStringLocal = `${dif}${tzh}:${tzm}`;
+
+      const formatRFC = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}${tzStringLocal}`;
+      
+      const eventStartDue = formatRFC(startDate);
+      const endDue = formatRFC(endDate);
+
       const eventRes = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
         method: 'POST',
         headers: { 
@@ -197,12 +178,12 @@ export default function App() {
         body: JSON.stringify({
           summary: `[Tarefa] ${title}`,
           description: `${notes || 'Agendado pelo Guardião Estudantil'}`,
-          start: { dateTime: due, timeZone: tzoString },
-          end: { dateTime: due, timeZone: tzoString },
+          start: { dateTime: eventStartDue, timeZone: tzoString },
+          end: { dateTime: endDue, timeZone: tzoString },
           reminders: { 
             useDefault: false, 
             overrides: [
-              { method: 'popup', minutes: 10 },
+              { method: 'popup', minutes: 20 },
               { method: 'popup', minutes: 0 }
             ] 
           }
@@ -212,9 +193,17 @@ export default function App() {
       if (eventRes.ok) {
         const eventData = await eventRes.json();
         googleEventId = eventData.id;
+      } else {
+        const errorText = await eventRes.text();
+        console.error("Erro na API Calendar:", errorText);
+        if (eventRes.status === 401 || eventRes.status === 403) {
+          throw new Error('Acesso negado. Ative a "Google Calendar API" no console do Google Cloud do Firebase. Se já ativou, clique no botão para deslogar do Google no App e faça login de novo para liberar os acessos do calendário.');
+        }
+        throw new Error(`Erro no Google Calendar: ${eventRes.status} - ${errorText}`);
       }
 
-      return { success: true, message: 'Sucesso', taskId: createData.id, listId: taskListId, eventId: googleEventId };
+      return { success: true, message: 'Sucesso', taskId: undefined, listId: undefined, eventId: googleEventId };
+
     } catch (error: any) {
       console.error("syncToGoogleTasks error:", error);
       return { success: false, message: error.message };
@@ -230,7 +219,7 @@ export default function App() {
     if (googleAccessToken) {
       const result = await syncToGoogleTasks(args.title, args.date, args.time, args.notes);
       if (result.success) {
-         googleSyncMsg = ' (Sincronizado com Google Tasks e Calendário)';
+         googleSyncMsg = ' (Sincronizado com o Google Agenda)';
          googleTaskId = result.taskId;
          googleTaskListId = result.listId;
          googleEventId = result.eventId;
@@ -457,18 +446,30 @@ export default function App() {
     ));
     setEditingTask(null);
 
-    const due = formatRFC3339Local(newDate, newTime);
+    const taskDue = formatRFC3339Local(newDate, newTime);
 
     if (task.googleTaskId && task.googleTaskListId) {
       updateGoogleTask(task.googleTaskId, task.googleTaskListId, { 
         title: newTitle, 
-        due, 
+        due: taskDue, 
         notes: `⏰ Horário: ${newTime}\n${newNotes || 'Agendado pelo Guardião Estudantil'}`
       });
     }
 
     if (task.googleEventId && googleAccessToken) {
       const tzoString = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const startDate = new Date(`${newDate}T${newTime}:00`);
+      const endDate = new Date(startDate.getTime() + 30 * 60000);
+      const pad = (n: number) => n < 10 ? '0' + n : n;
+      const tzo = -startDate.getTimezoneOffset();
+      const dif = tzo >= 0 ? '+' : '-';
+      const tzh = pad(Math.floor(Math.abs(tzo) / 60));
+      const tzm = pad(Math.abs(tzo) % 60);
+      const tzStringLocal = `${dif}${tzh}:${tzm}`;
+      
+      const eventStartDue = `${startDate.getFullYear()}-${pad(startDate.getMonth() + 1)}-${pad(startDate.getDate())}T${pad(startDate.getHours())}:${pad(startDate.getMinutes())}:${pad(startDate.getSeconds())}${tzStringLocal}`;
+      const endDue = `${endDate.getFullYear()}-${pad(endDate.getMonth() + 1)}-${pad(endDate.getDate())}T${pad(endDate.getHours())}:${pad(endDate.getMinutes())}:${pad(endDate.getSeconds())}${tzStringLocal}`;
+      
       fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${task.googleEventId}`, {
         method: 'PATCH',
         headers: { 
@@ -478,8 +479,8 @@ export default function App() {
         body: JSON.stringify({
           summary: `[Tarefa] ${newTitle}`,
           description: `${newNotes || 'Agendado pelo Guardião Estudantil'}`,
-          start: { dateTime: due, timeZone: tzoString },
-          end: { dateTime: due, timeZone: tzoString }
+          start: { dateTime: eventStartDue, timeZone: tzoString },
+          end: { dateTime: endDue, timeZone: tzoString }
         })
       }).catch(err => console.error("Failed to update Google Calendar event:", err));
     }

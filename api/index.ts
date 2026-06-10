@@ -37,10 +37,10 @@ const createTaskTool = {
 
 const getSystemInstruction = (schedule: any[]) => {
   const now = new Date();
-  const days = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
-  const currentDay = days[now.getDay()];
-  const currentDate = now.toLocaleDateString('pt-BR');
-  const currentTime = now.toLocaleTimeString('pt-BR');
+  const timeZone = 'America/Sao_Paulo';
+  const currentDay = now.toLocaleDateString('pt-BR', { timeZone, weekday: 'long' });
+  const currentDate = now.toLocaleDateString('pt-BR', { timeZone });
+  const currentTime = now.toLocaleTimeString('pt-BR', { timeZone });
 
   const scheduleStr = schedule?.map(day => `${day.short}: ${day.classes.length > 0 ? day.classes.join(', ') : 'Sem aulas'}`).join('\n') || '';
 

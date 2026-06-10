@@ -17,8 +17,8 @@ export function CompleteTaskModal({ task, onClose, onComplete }: CompleteTaskMod
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-      alert("Arquivo muito grande. O limite máximo é 5MB.");
+    if (file.size > 10 * 1024 * 1024) {
+      alert("Arquivo muito grande. O limite máximo é 10MB.");
       return;
     }
 
@@ -31,7 +31,38 @@ export function CompleteTaskModal({ task, onClose, onComplete }: CompleteTaskMod
     const reader = new FileReader();
     reader.onload = () => {
       if (typeof reader.result === 'string') {
-        setPhoto(reader.result);
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 800;
+          const MAX_HEIGHT = 800;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+            setPhoto(dataUrl);
+          } else {
+            setPhoto(reader.result as string); // fallback
+          }
+        };
+        img.src = reader.result;
       }
     };
     reader.readAsDataURL(file);
@@ -95,7 +126,7 @@ export function CompleteTaskModal({ task, onClose, onComplete }: CompleteTaskMod
                 </div>
                 <div className="flex flex-col items-center gap-1">
                   <span className="font-medium text-sm">Clique para enviar a foto</span>
-                  <span className="text-xs opacity-70">JPEG, PNG ou WEBP até 5MB</span>
+                  <span className="text-xs opacity-70">JPEG, PNG ou WEBP até 10MB</span>
                 </div>
               </button>
             )}
