@@ -48,21 +48,29 @@ export function useSyncState<T>(key: string, initialValue: T, column: string) {
     setValue((prevValue) => {
       const computedValue = typeof newValue === 'function' ? (newValue as Function)(prevValue) : newValue;
       
-      localStorage.setItem(key, JSON.stringify(computedValue));
+      try {
+        localStorage.setItem(key, JSON.stringify(computedValue));
+      } catch (e) {
+        console.error("Failed to save to localStorage:", e);
+      }
 
       if (sessionUser) {
-        // Sanitize data to remove undefined fields which Firestore rejects
-        const sanitizedValue = computedValue === undefined ? null : JSON.parse(JSON.stringify(computedValue));
-        
-        const payload = {
-          [column]: sanitizedValue,
-          updated_at: serverTimestamp()
-        };
-        
-        // Upsert the user profile data
-        setDoc(doc(db, 'user_data', sessionUser.uid), payload, { merge: true }).catch(err => {
-          console.error("Error saving data:", err);
-        });
+        try {
+          // Sanitize data to remove undefined fields which Firestore rejects
+          const sanitizedValue = computedValue === undefined ? null : JSON.parse(JSON.stringify(computedValue));
+          
+          const payload = {
+            [column]: sanitizedValue,
+            updated_at: serverTimestamp()
+          };
+          
+          // Upsert the user profile data
+          setDoc(doc(db, 'user_data', sessionUser.uid), payload, { merge: true }).catch(err => {
+            console.error("Error saving data to firestore:", err);
+          });
+        } catch (e) {
+          console.error("Failed to sync to firestore:", e);
+        }
       }
 
       return computedValue;

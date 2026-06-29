@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, CheckCircle, Clock, Calendar as CalendarIcon, User, AlertCircle, Settings, GraduationCap, Menu, X, LogOut, Book, Paperclip, FileIcon, ImageIcon, Edit2, Key, Trash2 } from 'lucide-react';
+import { Send, CheckCircle, Clock, Calendar as CalendarIcon, User, AlertCircle, Settings, GraduationCap, Menu, X, LogOut, Book, Paperclip, FileIcon, ImageIcon, Edit2, Key, Trash2, Eraser } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ScheduleManager, DaySchedule, defaultSchedule } from './components/ScheduleManager';
 import { GradesManager } from './components/GradesManager';
@@ -543,6 +543,16 @@ export default function App() {
     }
   };
 
+  const clearChat = () => {
+    setMessages([
+      {
+        id: 'welcome',
+        role: 'model',
+        content: 'Olá! Eu sou o **Guardião da Segurança do Trabalho**, seu assistente acadêmico de alta performance. Posso te ajudar a organizar seus trabalhos e garantir que você nunca perca um prazo. Qual é a sua próxima atividade?'
+      }
+    ]);
+  };
+
   return (
     <div className="flex h-screen bg-slate-50 text-slate-900 font-sans overflow-hidden" onClickCapture={handleAppClick}>
       
@@ -692,6 +702,14 @@ export default function App() {
             </div>
           </div>
           <div className="flex items-center gap-1.5 md:gap-2 flex-shrink-0">
+            <button 
+              onClick={clearChat}
+              className="flex items-center gap-2 px-2 md:px-3 py-2 bg-slate-100 hover:bg-red-50 text-slate-700 hover:text-red-700 border border-transparent rounded-lg transition-colors text-sm font-medium"
+              title="Limpar Chat"
+            >
+              <Eraser className="w-4 h-4 text-red-500" />
+              <span className="hidden sm:inline">Limpar</span>
+            </button>
             <button 
               onClick={() => setShowApiSettings(true)}
               className="flex items-center gap-2 px-2 md:px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors text-sm font-medium"
