@@ -245,7 +245,7 @@ export function PortfolioManager({ schedule, tasks, onClose, onDeleteTask, onRes
                   </p>
                 </div>
               ) : (
-                <AnimatePresence mode="popLayout">
+                <AnimatePresence>
                   {Array.from({ length: numUnits }).map((_, i) => {
                     const tasksInUnit = groupedTasks[i.toString()] || [];
                     if (tasksInUnit.length === 0) return null;
@@ -262,7 +262,7 @@ export function PortfolioManager({ schedule, tasks, onClose, onDeleteTask, onRes
                           {i + 1}º Ciclo/Unidade
                         </h4>
                         <div className="flex flex-col gap-3">
-                          <AnimatePresence mode="popLayout">
+                          <AnimatePresence>
                             {tasksInUnit.map(renderTask)}
                           </AnimatePresence>
                         </div>
@@ -283,7 +283,7 @@ export function PortfolioManager({ schedule, tasks, onClose, onDeleteTask, onRes
                         Geral / Sem Ciclo
                       </h4>
                       <div className="flex flex-col gap-3">
-                        <AnimatePresence mode="popLayout">
+                        <AnimatePresence>
                           {groupedTasks['outro'].map(renderTask)}
                         </AnimatePresence>
                       </div>
