@@ -44,7 +44,7 @@ export function EditTaskModal({ task, onClose, onSave }: EditTaskModalProps) {
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
+    const files = Array.from(e.target.files || []) as File[];
     if (files.length === 0) return;
 
     setIsUploading(true);
@@ -284,6 +284,7 @@ export function EditTaskModal({ task, onClose, onSave }: EditTaskModalProps) {
             <AnimatePresence>
               {showLinkInput && (
                 <motion.div 
+                  key="link-input"
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}

@@ -431,6 +431,7 @@ export function GradesManager({ schedule, onClose }: GradesManagerProps) {
             <AnimatePresence>
               {isEditingSettings && (
                 <motion.div 
+                  key="settings-panel"
                   initial={{ height: 0 }}
                   animate={{ height: 'auto' }}
                   exit={{ height: 0 }}
@@ -627,17 +628,19 @@ export function GradesManager({ schedule, onClose }: GradesManagerProps) {
 
       <AnimatePresence>
         {editingCell && (
-          <UnitDetailsModal 
-            subjectName={editingCell.subjectName}
-            unitIndex={editingCell.unitIndex}
-            unit={
-              (config.grades[editingCell.subjectName] && config.grades[editingCell.subjectName].units[editingCell.unitIndex]) 
-              ? config.grades[editingCell.subjectName].units[editingCell.unitIndex] 
-              : createEmptyUnit()
-            }
-            onSave={(newUnit) => handleSaveUnit(editingCell.subjectName, editingCell.unitIndex, newUnit)}
-            onClose={() => setEditingCell(null)}
-          />
+          <motion.div key="unit-details-modal" className="fixed inset-0 z-[60]">
+            <UnitDetailsModal 
+              subjectName={editingCell.subjectName}
+              unitIndex={editingCell.unitIndex}
+              unit={
+                (config.grades[editingCell.subjectName] && config.grades[editingCell.subjectName].units[editingCell.unitIndex]) 
+                ? config.grades[editingCell.subjectName].units[editingCell.unitIndex] 
+                : createEmptyUnit()
+              }
+              onSave={(newUnit) => handleSaveUnit(editingCell.subjectName, editingCell.unitIndex, newUnit)}
+              onClose={() => setEditingCell(null)}
+            />
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

@@ -620,14 +620,20 @@ export default function App() {
         </div>
         
         <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
-          {tasks.filter(t => t.status !== 'completed').length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-zinc-500 gap-3">
-              <CheckCircle className="w-12 h-12 stroke-2 text-zinc-600" />
-              <p className="text-center text-sm px-4 font-bold uppercase">Todas as tarefas concluídas.</p>
-            </div>
-          ) : (
-            <AnimatePresence>
-              {tasks.filter(t => t.status !== 'completed').map(task => (
+          <AnimatePresence mode="popLayout">
+            {tasks.filter(t => t.status !== 'completed').length === 0 ? (
+              <motion.div 
+                key="empty"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="h-full flex flex-col items-center justify-center text-zinc-500 gap-3"
+              >
+                <CheckCircle className="w-12 h-12 stroke-2 text-zinc-600" />
+                <p className="text-center text-sm px-4 font-bold uppercase">Todas as tarefas concluídas.</p>
+              </motion.div>
+            ) : (
+              tasks.filter(t => t.status !== 'completed').map(task => (
                 <motion.div 
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -676,9 +682,9 @@ export default function App() {
                     </button>
                   </div>
                 </motion.div>
-              ))}
-            </AnimatePresence>
-          )}
+              ))
+            )}
+          </AnimatePresence>
         </div>
         <div className="p-4 border-t-4 border-white bg-[#18181b]">
           <button 
@@ -792,7 +798,7 @@ export default function App() {
                           if (part.startsWith('**') && part.endsWith('**')) {
                             return <strong key={j} className="text-[#a3e635] font-black">{part.slice(2, -2)}</strong>;
                           }
-                          return part;
+                          return <span key={j}>{part}</span>;
                         })}
                       </p>
                     ))}
@@ -884,38 +890,51 @@ export default function App() {
       
       <AnimatePresence>
         {showSchedule && (
-          <ScheduleManager 
-            schedule={schedule} 
-            setSchedule={setSchedule} 
-            onClose={() => setShowSchedule(false)} 
-          />
+          <motion.div key="schedule" className="contents">
+            <ScheduleManager 
+              schedule={schedule} 
+              setSchedule={setSchedule} 
+              onClose={() => setShowSchedule(false)} 
+            />
+          </motion.div>
         )}
         {showGrades && (
-          <GradesManager 
-            schedule={schedule} 
-            onClose={() => setShowGrades(false)} 
-          />
+          <motion.div key="grades" className="contents">
+            <GradesManager 
+              schedule={schedule} 
+              onClose={() => setShowGrades(false)} 
+            />
+          </motion.div>
         )}
         {showPortfolio && (
-          <PortfolioManager
-            schedule={schedule}
-            tasks={tasks}
-            onClose={() => setShowPortfolio(false)}
-            onDeleteTask={promptDeleteTask}
-            onRestoreTask={restoreTask}
-            onUpdateTask={updateTaskPartial}
-          />
+          <motion.div key="portfolio" className="contents">
+            <PortfolioManager
+              schedule={schedule}
+              tasks={tasks}
+              onClose={() => setShowPortfolio(false)}
+              onDeleteTask={promptDeleteTask}
+              onRestoreTask={restoreTask}
+              onUpdateTask={updateTaskPartial}
+            />
+          </motion.div>
         )}
         {showApiSettings && (
-          <ApiSettingsModal onClose={() => setShowApiSettings(false)} />
+          <motion.div key="api-settings" className="contents">
+            <ApiSettingsModal onClose={() => setShowApiSettings(false)} />
+          </motion.div>
         )}
 
         {showDataBackup && (
-          <DataBackupModal onClose={() => setShowDataBackup(false)} />
+          <motion.div key="data-backup" className="contents">
+            <DataBackupModal onClose={() => setShowDataBackup(false)} />
+          </motion.div>
         )}
 
         {taskToDelete && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
+          <motion.div 
+            key="delete-modal"
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[100]"
+          >
             <motion.div 
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -947,22 +966,26 @@ export default function App() {
                 </button>
               </div>
             </motion.div>
-          </div>
+          </motion.div>
         )}
 
         {editingTask && (
-          <EditTaskModal
-            task={editingTask}
-            onClose={() => setEditingTask(null)}
-            onSave={handleEditTaskSave}
-          />
+          <motion.div key="edit-task" className="contents">
+            <EditTaskModal
+              task={editingTask}
+              onClose={() => setEditingTask(null)}
+              onSave={handleEditTaskSave}
+            />
+          </motion.div>
         )}
         {completingTask && (
-          <CompleteTaskModal
-            task={completingTask}
-            onClose={() => setCompletingTask(null)}
-            onComplete={handleCompleteTaskWithEvidence}
-          />
+          <motion.div key="complete-task" className="contents">
+            <CompleteTaskModal
+              task={completingTask}
+              onClose={() => setCompletingTask(null)}
+              onComplete={handleCompleteTaskWithEvidence}
+            />
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

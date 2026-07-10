@@ -245,35 +245,51 @@ export function PortfolioManager({ schedule, tasks, onClose, onDeleteTask, onRes
                   </p>
                 </div>
               ) : (
-                <>
+                <AnimatePresence mode="popLayout">
                   {Array.from({ length: numUnits }).map((_, i) => {
                     const tasksInUnit = groupedTasks[i.toString()] || [];
                     if (tasksInUnit.length === 0) return null;
                     return (
-                      <div key={i} className="flex flex-col gap-3">
+                      <motion.div 
+                        key={`unit-${i}`}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="flex flex-col gap-3"
+                      >
                         <h4 className="font-bold text-slate-700 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 self-start text-sm shadow-sm flex items-center gap-2">
                           <Folder className="w-4 h-4 text-indigo-500" />
                           {i + 1}º Ciclo/Unidade
                         </h4>
-                        <AnimatePresence>
-                          {tasksInUnit.map(renderTask)}
-                        </AnimatePresence>
-                      </div>
+                        <div className="flex flex-col gap-3">
+                          <AnimatePresence mode="popLayout">
+                            {tasksInUnit.map(renderTask)}
+                          </AnimatePresence>
+                        </div>
+                      </motion.div>
                     );
                   })}
 
                   {(groupedTasks['outro']?.length ?? 0) > 0 && (
-                    <div className="flex flex-col gap-3">
+                    <motion.div 
+                      key="unit-outro"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="flex flex-col gap-3"
+                    >
                       <h4 className="font-bold text-slate-700 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 self-start text-sm shadow-sm flex items-center gap-2">
                         <Folder className="w-4 h-4 text-slate-400" />
                         Geral / Sem Ciclo
                       </h4>
-                      <AnimatePresence>
-                        {groupedTasks['outro'].map(renderTask)}
-                      </AnimatePresence>
-                    </div>
+                      <div className="flex flex-col gap-3">
+                        <AnimatePresence mode="popLayout">
+                          {groupedTasks['outro'].map(renderTask)}
+                        </AnimatePresence>
+                      </div>
+                    </motion.div>
                   )}
-                </>
+                </AnimatePresence>
               )}
             </div>
           </div>

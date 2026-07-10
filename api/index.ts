@@ -145,7 +145,9 @@ app.post("/api/chat", async (req, res) => {
         for (const attachment of attachments) {
           if (attachment.type === "application/pdf") {
             try {
-              const pdfParse = (await import("pdf-parse")).default;
+              const pdfParseModule = await import("pdf-parse");
+              // @ts-ignore
+              const pdfParse = pdfParseModule.default || pdfParseModule;
               const base64Data = attachment.data.split(',')[1] || attachment.data;
               const buffer = Buffer.from(base64Data, "base64");
               const pdfData = await pdfParse(buffer);
