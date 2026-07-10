@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, CheckCircle, Clock, Calendar as CalendarIcon, User, AlertCircle, Settings, GraduationCap, Menu, X, LogOut, Book, Paperclip, FileIcon, ImageIcon, Edit2, Key, Trash2, Eraser } from 'lucide-react';
+import { Send, CheckCircle, Clock, Calendar as CalendarIcon, User, AlertCircle, Settings, GraduationCap, Menu, X, LogOut, Book, Paperclip, FileIcon, ImageIcon, Edit2, Key, Trash2, Eraser, Save } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ScheduleManager, DaySchedule, defaultSchedule } from './components/ScheduleManager';
 import { GradesManager } from './components/GradesManager';
@@ -7,6 +7,7 @@ import { PortfolioManager } from './components/PortfolioManager';
 import { EditTaskModal } from './components/EditTaskModal';
 import { CompleteTaskModal } from './components/CompleteTaskModal';
 import { ApiSettingsModal } from './components/ApiSettingsModal';
+import { DataBackupModal } from './components/DataBackupModal';
 import { AppLogo } from './components/Logo';
 import { useSyncState } from './lib/useSync';
 import { useAuth } from './lib/AuthContext';
@@ -54,6 +55,7 @@ export default function App() {
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [showPortfolio, setShowPortfolio] = useState(false);
   const [showApiSettings, setShowApiSettings] = useState(false);
+  const [showDataBackup, setShowDataBackup] = useState(false);
   const [attachments, setAttachments] = useState<{file: File, base64: string}[]>([]);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [completingTask, setCompletingTask] = useState<Task | null>(null);
@@ -743,6 +745,14 @@ export default function App() {
               <Settings className="w-4 h-4" />
               <span className="hidden sm:inline">Grade</span>
             </button>
+            <button 
+              onClick={() => { playClick(); setShowDataBackup(true); }}
+              className="flex items-center gap-2 px-2 md:px-3 py-2 bg-[#18181b] border-2 border-white text-[#a3e635] hover:bg-[#a3e635] hover:text-black transition-colors text-sm font-bold uppercase shadow-[2px_2px_0px_white] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none"
+              title="Backup e Recuperação"
+            >
+              <Save className="w-4 h-4" />
+              <span className="hidden sm:inline">Dados</span>
+            </button>
           </div>
         </header>
 
@@ -899,7 +909,11 @@ export default function App() {
         {showApiSettings && (
           <ApiSettingsModal onClose={() => setShowApiSettings(false)} />
         )}
-        
+
+        {showDataBackup && (
+          <DataBackupModal onClose={() => setShowDataBackup(false)} />
+        )}
+
         {taskToDelete && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
             <motion.div 

@@ -95,7 +95,6 @@ export function ScheduleManager({ schedule, setSchedule, onClose }: ScheduleMana
 
   const updateSchedule = (newSchedule: DaySchedule[]) => {
     setSchedule(newSchedule);
-    localStorage.setItem('guardiao_schedule', JSON.stringify(newSchedule));
   };
 
   const handleSave = (dIdx: number, cIdx: number) => {

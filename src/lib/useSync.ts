@@ -33,6 +33,7 @@ export function useSyncState<T>(key: string, initialValue: T, column: string) {
           if (data && data[column]) {
             setValue(data[column]);
             localStorage.setItem(key, JSON.stringify(data[column]));
+            localStorage.setItem(`${key}_autobackup`, JSON.stringify(data[column]));
           }
         }
       } catch (error) {
@@ -50,6 +51,8 @@ export function useSyncState<T>(key: string, initialValue: T, column: string) {
       
       try {
         localStorage.setItem(key, JSON.stringify(computedValue));
+        // Save an auto-backup to prevent data loss
+        localStorage.setItem(`${key}_autobackup`, JSON.stringify(computedValue));
       } catch (e) {
         console.error("Failed to save to localStorage:", e);
       }
