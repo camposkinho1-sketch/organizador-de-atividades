@@ -11,6 +11,7 @@ import { AppLogo } from './components/Logo';
 import { useSyncState } from './lib/useSync';
 import { useAuth } from './lib/AuthContext';
 import { auth } from './lib/firebase';
+import { playMessageSent, playMessageReceived, playTaskCompleted, playTaskAdded, playClick } from './lib/audio';
 
 import { BoletimIcon } from './components/BoletimIcon';
 
@@ -242,6 +243,7 @@ export default function App() {
       googleEventId
     };
     setTasks(prev => [...prev, newTask]);
+    playTaskAdded();
 
     return { success: true, message: `Tarefa '${args.title}' agendada para ${args.date} às ${args.time}.${googleSyncMsg}` };
   };
@@ -281,6 +283,8 @@ export default function App() {
           data: att.base64
         }));
       }
+
+      playMessageSent();
 
       const requestHeaders: any = { 'Content-Type': 'application/json' };
       const customApiKey = localStorage.getItem('custom_api_key');
@@ -339,6 +343,7 @@ export default function App() {
            const secondData = await secondResponse.json();
            if (secondData.text) {
              setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', content: secondData.text }]);
+             playMessageReceived();
            }
         } else {
            const errData = await secondResponse.json().catch(() => ({}));
@@ -346,6 +351,7 @@ export default function App() {
         }
       } else if (responseData.text) {
         setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', content: responseData.text }]);
+        playMessageReceived();
       }
     } catch (error: any) {
       console.error("Error communicating with Gemini:", error);
@@ -372,6 +378,7 @@ export default function App() {
       updateGoogleTask(task.googleTaskId, task.googleTaskListId, { status: 'completed' });
     }
     
+    playTaskCompleted();
     setCompletingTask(null);
   };
 
@@ -395,6 +402,7 @@ export default function App() {
   };
 
   const promptDeleteTask = (taskId: string) => {
+    playClick();
     setTaskToDelete(taskId);
   };
 
@@ -544,6 +552,7 @@ export default function App() {
   };
 
   const clearChat = () => {
+    playClick();
     setMessages([
       {
         id: 'welcome',
@@ -554,34 +563,34 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-screen bg-slate-50 text-slate-900 font-sans overflow-hidden" onClickCapture={handleAppClick}>
+    <div className="flex h-screen bg-[#09090b] text-[#f4f4f5] font-sans overflow-hidden font-medium" onClickCapture={handleAppClick}>
       
       {/* Mobile Overlay */}
       {showMobileSidebar && (
         <div 
-          className="fixed inset-0 bg-slate-900/50 z-40 md:hidden backdrop-blur-sm" 
+          className="fixed inset-0 bg-black/80 z-40 md:hidden backdrop-blur-sm" 
           onClick={() => setShowMobileSidebar(false)} 
         />
       )}
 
       {/* Sidebar: Simulated Google Tasks */}
-      <div className={`w-80 bg-white border-r border-slate-200 shadow-2xl md:shadow-sm flex-col z-50 md:z-10 absolute md:relative inset-y-0 left-0 transform transition-transform duration-300 ease-in-out ${showMobileSidebar ? 'translate-x-0' : '-translate-x-full md:translate-x-0'} flex`}>
-        <div className="p-6 border-b border-slate-100 flex flex-col gap-4 bg-blue-50/50">
+      <div className={`w-80 bg-[#18181b] border-r-4 border-white flex-col z-50 md:z-10 absolute md:relative inset-y-0 left-0 transform transition-transform duration-300 ease-in-out ${showMobileSidebar ? 'translate-x-0' : '-translate-x-full md:translate-x-0'} flex`}>
+        <div className="p-6 border-b-4 border-white flex flex-col gap-4 bg-[#a3e635]">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-bold text-blue-900 flex items-center gap-2">
-                <CheckCircle className="text-blue-600 w-6 h-6" />
+              <h2 className="text-xl font-black text-black uppercase tracking-tight flex items-center gap-2">
+                <CheckCircle className="text-black w-6 h-6" />
                 Suas Tarefas
               </h2>
               <div className="flex items-center gap-2 mt-1">
-                <p className="text-sm text-blue-600/80">Sincronizado</p>
-                <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+                <p className="text-sm font-bold text-black">Sincronizado</p>
+                <div className="w-2 h-2 rounded-none bg-black"></div>
               </div>
             </div>
             {/* Close button for mobile */}
             <button 
               onClick={() => setShowMobileSidebar(false)}
-              className="md:hidden p-2 text-slate-500 hover:bg-blue-100 rounded-full"
+              className="md:hidden p-2 text-black border-2 border-black hover:bg-black hover:text-[#a3e635] shadow-[2px_2px_0px_black] transition-all"
             >
               <X className="w-5 h-5" />
             </button>
@@ -590,7 +599,7 @@ export default function App() {
           {googleAccessToken ? (
             <button 
               onClick={logOut}
-              className="text-xs font-semibold bg-white border border-red-200 text-red-600 py-2 px-3 rounded-lg shadow-sm hover:bg-red-50 transition-colors w-full flex items-center justify-center gap-2"
+              className="text-xs font-black uppercase bg-[#ef4444] border-2 border-black text-white py-3 px-3 shadow-[4px_4px_0px_black] hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all w-full flex items-center justify-center gap-2"
             >
               <LogOut className="w-4 h-4" />
               Sair da Conta Google
@@ -598,7 +607,7 @@ export default function App() {
           ) : (
             <button 
               onClick={signIn}
-              className="text-xs font-semibold bg-white border border-blue-200 text-blue-700 py-2 px-3 rounded-lg shadow-sm hover:bg-blue-50 transition-colors w-full flex items-center justify-center gap-2"
+              className="text-xs font-black uppercase bg-[#3b82f6] border-2 border-black text-white py-3 px-3 shadow-[4px_4px_0px_black] hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all w-full flex items-center justify-center gap-2"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24">
                 <path fill="currentColor" d="M21.35,11.1H12.18V13.83H18.69C18.36,17.64 15.19,19.27 12.19,19.27C8.36,19.27 5,16.25 5,12C5,7.9 8.2,4.73 12.2,4.73C15.29,4.73 17.1,6.7 17.1,6.7L19,4.72C19,4.72 16.56,2 12.1,2C6.42,2 2.03,6.8 2.03,12C2.03,17.05 6.16,22 12.25,22C17.6,22 21.5,18.33 21.5,12.91C21.5,11.76 21.35,11.1 21.35,11.1V11.1Z" />
@@ -608,11 +617,11 @@ export default function App() {
           )}
         </div>
         
-        <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
+        <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
           {tasks.filter(t => t.status !== 'completed').length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-3">
-              <CheckCircle className="w-12 h-12 stroke-1 text-slate-300" />
-              <p className="text-center text-sm px-4">Todas as tarefas foram concluídas ou nenhuma foi agendada.</p>
+            <div className="h-full flex flex-col items-center justify-center text-zinc-500 gap-3">
+              <CheckCircle className="w-12 h-12 stroke-2 text-zinc-600" />
+              <p className="text-center text-sm px-4 font-bold uppercase">Todas as tarefas concluídas.</p>
             </div>
           ) : (
             <AnimatePresence>
@@ -622,16 +631,16 @@ export default function App() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95 }}
                   key={task.id}
-                  className="p-4 rounded-xl border transition-all duration-200 bg-white border-blue-100 shadow-sm hover:shadow-md hover:border-blue-200 flex justify-between items-start group"
+                  className="p-4 bg-[#27272a] border-2 border-white shadow-[4px_4px_0px_white] transition-all duration-200 flex justify-between items-start group"
                 >
                   <div className="flex items-start gap-3 cursor-pointer flex-1" onClick={() => toggleTaskCompletion(task.id)}>
-                    <div className="mt-0.5 rounded-full flex-shrink-0 w-5 h-5 flex items-center justify-center border transition-colors border-slate-300 group-hover:border-green-500">
+                    <div className="mt-0.5 w-5 h-5 flex items-center justify-center border-2 transition-colors border-white group-hover:bg-[#a3e635]">
                     </div>
                     <div>
-                      <h3 className="font-medium text-sm transition-all text-slate-800">
+                      <h3 className="font-bold text-sm text-white uppercase">
                         {task.title}
                       </h3>
-                      <div className="flex items-center gap-3 mt-2 text-xs font-medium text-slate-500">
+                      <div className="flex items-center gap-3 mt-2 text-xs font-bold text-zinc-400">
                         <span className="flex items-center gap-1">
                           <CalendarIcon className="w-3.5 h-3.5" />
                           {task.date}
@@ -642,23 +651,23 @@ export default function App() {
                         </span>
                       </div>
                       {task.notes && (
-                        <p className="mt-2 text-xs text-slate-500 whitespace-pre-wrap leading-relaxed border-l-2 border-blue-200 pl-2">
+                        <p className="mt-2 text-xs text-zinc-300 whitespace-pre-wrap leading-relaxed border-l-4 border-[#3b82f6] pl-2 font-mono">
                           {task.notes}
                         </p>
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 ml-2">
                     <button
                       onClick={(e) => { e.stopPropagation(); setEditingTask(task); }}
-                      className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                      className="p-2 text-zinc-400 hover:text-white border border-transparent hover:border-white hover:bg-[#3b82f6] transition-colors opacity-0 group-hover:opacity-100"
                       title="Editar Atividade"
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); promptDeleteTask(task.id); }}
-                      className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                      className="p-2 text-zinc-400 hover:text-white border border-transparent hover:border-white hover:bg-[#ef4444] transition-colors opacity-0 group-hover:opacity-100"
                       title="Excluir Atividade"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -669,10 +678,10 @@ export default function App() {
             </AnimatePresence>
           )}
         </div>
-        <div className="p-4 border-t border-slate-100 bg-slate-50">
+        <div className="p-4 border-t-4 border-white bg-[#18181b]">
           <button 
             onClick={() => setShowPortfolio(true)}
-            className="w-full flex items-center justify-center gap-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 py-2.5 px-4 rounded-xl text-sm font-medium transition-colors border border-indigo-100 shadow-sm"
+            className="w-full flex items-center justify-center gap-2 bg-[#ec4899] border-2 border-white text-white py-3 px-4 text-sm font-black uppercase transition-all shadow-[4px_4px_0px_white] hover:translate-x-1 hover:translate-y-1 hover:shadow-none"
           >
             <Book className="w-5 h-5" />
             Caderno de Atividades
@@ -681,12 +690,12 @@ export default function App() {
       </div>
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col bg-slate-50 relative min-w-0">
-        <header className="px-4 md:px-6 py-4 bg-white border-b border-slate-200 shadow-sm flex items-center justify-between sticky top-0 z-10 w-full">
+      <div className="flex-1 flex flex-col bg-[#09090b] relative min-w-0">
+        <header className="px-4 md:px-6 py-4 bg-[#18181b] border-b-4 border-white shadow-[0_4px_0_0_white] flex items-center justify-between sticky top-0 z-10 w-full">
           <div className="flex items-center gap-3">
             <button 
               onClick={() => setShowMobileSidebar(true)}
-              className="md:hidden p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+              className="md:hidden p-2 -ml-2 text-white hover:bg-[#3b82f6] border border-transparent hover:border-white transition-colors"
             >
               <Menu className="w-6 h-6" />
             </button>
@@ -694,9 +703,9 @@ export default function App() {
               <AppLogo className="w-10 h-10 md:w-12 md:h-12" />
             </div>
             <div className="min-w-0">
-              <h1 className="font-bold text-slate-900 text-sm sm:text-base md:text-lg truncate">Guardião Estudantil</h1>
-              <div className="flex items-center gap-1.5 text-xs font-medium text-green-600">
-                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+              <h1 className="font-black text-white uppercase tracking-wider text-sm sm:text-base md:text-lg truncate">Guardião Estudantil</h1>
+              <div className="flex items-center gap-1.5 text-xs font-bold text-[#a3e635]">
+                <span className="w-2 h-2 bg-[#a3e635] animate-pulse"></span>
                 <span className="truncate">Online</span>
               </div>
             </div>
@@ -704,31 +713,31 @@ export default function App() {
           <div className="flex items-center gap-1.5 md:gap-2 flex-shrink-0">
             <button 
               onClick={clearChat}
-              className="flex items-center gap-2 px-2 md:px-3 py-2 bg-slate-100 hover:bg-red-50 text-slate-700 hover:text-red-700 border border-transparent rounded-lg transition-colors text-sm font-medium"
+              className="flex items-center gap-2 px-2 md:px-3 py-2 bg-[#18181b] border-2 border-white text-white hover:bg-[#ef4444] transition-colors text-sm font-bold uppercase shadow-[2px_2px_0px_white] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none"
               title="Limpar Chat"
             >
-              <Eraser className="w-4 h-4 text-red-500" />
+              <Eraser className="w-4 h-4" />
               <span className="hidden sm:inline">Limpar</span>
             </button>
             <button 
-              onClick={() => setShowApiSettings(true)}
-              className="flex items-center gap-2 px-2 md:px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors text-sm font-medium"
+              onClick={() => { playClick(); setShowApiSettings(true); }}
+              className="flex items-center gap-2 px-2 md:px-3 py-2 bg-[#18181b] border-2 border-white text-white hover:bg-[#3b82f6] transition-colors text-sm font-bold uppercase shadow-[2px_2px_0px_white] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none"
               title="Configurar Chave API"
             >
-              <Key className="w-4 h-4 text-blue-600" />
+              <Key className="w-4 h-4" />
               <span className="hidden sm:inline">Chave</span>
             </button>
             <button 
-              onClick={() => setShowGrades(true)}
-              className="flex items-center gap-2 px-2 md:px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-transparent rounded-lg transition-colors text-sm font-medium"
+              onClick={() => { playClick(); setShowGrades(true); }}
+              className="flex items-center gap-2 px-2 md:px-3 py-2 bg-[#18181b] border-2 border-white text-white hover:bg-[#a3e635] hover:text-black transition-colors text-sm font-bold uppercase shadow-[2px_2px_0px_white] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none"
               title="Boletim"
             >
-              <BoletimIcon className="w-5 h-5 text-blue-600 font-bold" />
+              <BoletimIcon className="w-5 h-5 font-bold" />
               <span className="hidden sm:inline">Boletim</span>
             </button>
             <button 
-              onClick={() => setShowSchedule(true)}
-              className="flex items-center gap-2 px-2 md:px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors text-sm font-medium"
+              onClick={() => { playClick(); setShowSchedule(true); }}
+              className="flex items-center gap-2 px-2 md:px-3 py-2 bg-[#18181b] border-2 border-white text-white hover:bg-[#ec4899] transition-colors text-sm font-bold uppercase shadow-[2px_2px_0px_white] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none"
               title="Editar Grade"
             >
               <Settings className="w-4 h-4" />
@@ -740,9 +749,9 @@ export default function App() {
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 scroll-smooth">
           <div className="max-w-3xl mx-auto flex flex-col gap-6">
             
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex gap-3 text-sm text-yellow-800 shadow-sm">
-              <AlertCircle className="w-5 h-5 flex-shrink-0 text-yellow-600" />
-              <p>Simulador Ativado: Crie tarefas (ex: "Tenho atividade de Química") e veja a IA agendar automaticamente na sua barra lateral.</p>
+            <div className="bg-[#a3e635] border-2 border-white p-4 flex gap-3 text-black shadow-[4px_4px_0px_white]">
+              <AlertCircle className="w-5 h-5 flex-shrink-0 text-black" />
+              <p className="font-bold">Simulador Ativado: Crie tarefas (ex: "Tenho atividade de Química") e veja a IA agendar automaticamente na sua barra lateral.</p>
             </div>
 
             {messages.map((message) => (
@@ -752,26 +761,26 @@ export default function App() {
                 key={message.id} 
                 className={`flex gap-4 ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
               >
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                <div className={`w-10 h-10 flex items-center justify-center flex-shrink-0 border-2 border-white shadow-[2px_2px_0px_white] ${
                   message.role === 'user' 
-                    ? 'bg-slate-200 text-slate-600' 
-                    : 'bg-amber-100 text-amber-700 border border-amber-300'
+                    ? 'bg-[#ec4899] text-white' 
+                    : 'bg-[#3b82f6] text-white'
                 }`}>
                   {message.role === 'user' ? <User className="w-5 h-5" /> : <GraduationCap className="w-6 h-6" />}
                 </div>
                 
-                <div className={`max-w-[85%] md:max-w-[75%] rounded-2xl p-4 shadow-sm ${
+                <div className={`max-w-[85%] md:max-w-[75%] p-4 border-2 border-white shadow-[4px_4px_0px_white] ${
                   message.role === 'user' 
-                    ? 'bg-blue-600 text-white rounded-tr-sm' 
-                    : 'bg-white border border-slate-200 text-slate-800 rounded-tl-sm'
+                    ? 'bg-[#ec4899] text-white' 
+                    : 'bg-[#27272a] text-white'
                 }`}>
-                  <div className="whitespace-pre-wrap format-tags">
+                  <div className="whitespace-pre-wrap format-tags font-mono text-sm leading-relaxed">
                     {/* Basic markdown formatting since we aren't using a library yet */}
                     {message.content.split('\n').map((line, i) => (
                       <p key={i} className={i !== 0 ? 'mt-2' : ''}>
                         {line.split(/(\*\*.*?\*\*)/g).map((part, j) => {
                           if (part.startsWith('**') && part.endsWith('**')) {
-                            return <strong key={j} className={message.role === 'user' ? 'text-white font-bold' : 'text-slate-900 font-bold'}>{part.slice(2, -2)}</strong>;
+                            return <strong key={j} className="text-[#a3e635] font-black">{part.slice(2, -2)}</strong>;
                           }
                           return part;
                         })}
@@ -784,13 +793,13 @@ export default function App() {
             
             {isLoading && (
               <div className="flex gap-4 flex-row">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-amber-100 text-amber-700 border border-amber-300">
+                <div className="w-10 h-10 flex items-center justify-center flex-shrink-0 bg-[#3b82f6] text-white border-2 border-white shadow-[2px_2px_0px_white]">
                   <GraduationCap className="w-6 h-6" />
                 </div>
-                <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-sm p-4 shadow-sm flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-amber-500 animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <div className="w-2 h-2 rounded-full bg-amber-500 animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <div className="w-2 h-2 rounded-full bg-amber-500 animate-bounce" style={{ animationDelay: '300ms' }} />
+                <div className="bg-[#27272a] border-2 border-white p-4 shadow-[4px_4px_0px_white] flex items-center gap-2">
+                  <div className="w-2 h-2 bg-[#a3e635] animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <div className="w-2 h-2 bg-[#a3e635] animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <div className="w-2 h-2 bg-[#a3e635] animate-bounce" style={{ animationDelay: '300ms' }} />
                 </div>
               </div>
             )}
@@ -799,25 +808,25 @@ export default function App() {
           </div>
         </div>
 
-        <div className="p-4 bg-white border-t border-slate-200 w-full z-10 sticky bottom-0 flex flex-col items-center">
+        <div className="p-4 bg-[#18181b] border-t-4 border-white w-full z-10 sticky bottom-0 flex flex-col items-center">
           {attachments.length > 0 && (
             <div className="max-w-3xl w-full mb-3 flex flex-wrap gap-2">
               {attachments.map((att, idx) => (
-                <div key={idx} className="flex items-center justify-between bg-blue-50 border border-blue-100 p-2 rounded-lg shadow-sm">
+                <div key={idx} className="flex items-center justify-between bg-[#3b82f6] border-2 border-white p-2 shadow-[2px_2px_0px_white]">
                   <div className="flex items-center gap-2 overflow-hidden max-w-[150px] sm:max-w-[200px]">
-                    <div className="text-blue-700">
+                    <div className="text-white">
                       {att.file.type.startsWith('image/') ? <ImageIcon className="w-4 h-4" /> : <FileIcon className="w-4 h-4" />}
                     </div>
-                    <div className="truncate text-xs font-medium text-slate-700">
+                    <div className="truncate text-xs font-bold text-white uppercase">
                       {att.file.name}
                     </div>
                   </div>
                   <button
                     type="button"
                     onClick={() => setAttachments(prev => prev.filter((_, i) => i !== idx))}
-                    className="ml-2 p-1 text-slate-400 hover:text-red-500 hover:bg-slate-200 rounded-full transition-colors"
+                    className="ml-2 p-1 text-white hover:text-[#ef4444] transition-colors"
                   >
-                    <X className="w-3.5 h-3.5" />
+                    <X className="w-4 h-4" />
                   </button>
                 </div>
               ))}
@@ -837,7 +846,7 @@ export default function App() {
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={isLoading}
-              className="absolute left-2 top-1/2 -translate-y-1/2 p-2.5 text-slate-500 hover:bg-slate-100 hover:text-blue-600 rounded-full transition-colors disabled:opacity-50"
+              className="absolute left-3 top-1/2 -translate-y-1/2 p-2 text-zinc-400 hover:text-white transition-colors disabled:opacity-50"
             >
               <Paperclip className="w-5 h-5" />
             </button>
@@ -845,19 +854,19 @@ export default function App() {
               type="text"
               value={input}
               onChange={e => setInput(e.target.value)}
-              placeholder="Ex: Tenho um trabalho de Química para entregar..."
+              placeholder="Ex: Tenho um trabalho de Química..."
               disabled={isLoading}
-              className="w-full bg-slate-50 border border-slate-300 text-slate-900 rounded-full py-4 pl-14 pr-14 outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-inner"
+              className="w-full bg-[#27272a] border-2 border-white text-white font-mono py-4 pl-12 pr-14 outline-none focus:ring-0 focus:shadow-[inset_4px_4px_0px_rgba(255,255,255,0.1)] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[4px_4px_0px_white]"
             />
             <button 
               type="submit" 
               disabled={(!input.trim() && attachments.length === 0) || isLoading}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 bg-blue-600 text-white rounded-full hover:bg-blue-700 disabled:bg-slate-300 disabled:text-slate-500 transition-colors shadow-sm"
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 bg-[#a3e635] text-black border-2 border-white hover:translate-x-[1px] hover:translate-y-[1px] disabled:bg-zinc-600 disabled:text-zinc-400 transition-all shadow-[2px_2px_0px_white] hover:shadow-none"
             >
               <Send className="w-5 h-5" />
             </button>
           </form>
-          <div className="text-center mt-3 text-xs text-slate-500 flex justify-center items-center gap-2">
+          <div className="text-center mt-3 text-xs text-zinc-400 font-mono flex justify-center items-center gap-2">
              <span>Funciona com Google Gemini (Lê Imagens e PDF)</span>
           </div>
         </div>
@@ -892,22 +901,22 @@ export default function App() {
         )}
         
         {taskToDelete && (
-          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
             <motion.div 
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-2xl p-6 shadow-xl w-full max-w-sm text-center"
+              className="bg-[#18181b] border-4 border-white shadow-[8px_8px_0px_white] p-6 w-full max-w-sm text-center"
             >
-              <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="w-16 h-16 bg-[#ef4444] border-2 border-white text-white shadow-[4px_4px_0px_white] flex items-center justify-center mx-auto mb-6">
                 <Trash2 className="w-8 h-8" />
               </div>
-              <h3 className="text-lg font-bold text-slate-800 mb-2">Excluir Lembrete</h3>
-              <p className="text-slate-600 mb-6 font-medium">Você tem certeza que deseja excluir este lembrete?</p>
-              <div className="flex justify-center gap-3">
+              <h3 className="text-xl font-black text-white uppercase mb-2">Excluir Lembrete</h3>
+              <p className="text-zinc-400 mb-6 font-mono text-sm">Você tem certeza que deseja excluir este lembrete?</p>
+              <div className="flex justify-center gap-4">
                 <button
                   onClick={() => setTaskToDelete(null)}
-                  className="px-4 py-2 hover:bg-slate-100 text-slate-700 font-medium rounded-lg transition-colors"
+                  className="px-4 py-3 bg-[#27272a] border-2 border-white text-white font-bold uppercase shadow-[4px_4px_0px_white] hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all flex-1"
                 >
                   Cancelar
                 </button>
@@ -918,7 +927,7 @@ export default function App() {
                     }
                     setTaskToDelete(null);
                   }}
-                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors"
+                  className="px-4 py-3 bg-[#ef4444] border-2 border-white text-white font-bold uppercase shadow-[4px_4px_0px_white] hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all flex-1"
                 >
                   Sim, excluir
                 </button>
