@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, CheckCircle, Clock, Calendar as CalendarIcon, User, AlertCircle, Settings, GraduationCap, Menu, X, LogOut, Book, Paperclip, FileIcon, ImageIcon, Edit2, Key, Trash2, Eraser, Save } from 'lucide-react';
+import { Send, CheckCircle, Clock, Calendar as CalendarIcon, User, AlertCircle, Settings, GraduationCap, Menu, X, LogOut, Book, Paperclip, FileIcon, ImageIcon, Edit2, Key, Trash2, Eraser, Save, ShieldAlert } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ScheduleManager, DaySchedule, defaultSchedule } from './components/ScheduleManager';
 import { GradesManager } from './components/GradesManager';
@@ -11,7 +11,9 @@ import { DataBackupModal } from './components/DataBackupModal';
 import { AppLogo } from './components/Logo';
 import { useSyncState } from './lib/useSync';
 import { useAuth } from './lib/AuthContext';
-import { auth } from './lib/firebase';
+import { auth, db } from './lib/firebase';
+import { deleteUser } from 'firebase/auth';
+import { doc, deleteDoc } from 'firebase/firestore';
 import { playMessageSent, playMessageReceived, playTaskCompleted, playTaskAdded, playClick } from './lib/audio';
 
 import { BoletimIcon } from './components/BoletimIcon';
@@ -60,6 +62,8 @@ export default function App() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [completingTask, setCompletingTask] = useState<Task | null>(null);
   const [taskToDelete, setTaskToDelete] = useState<string | null>(null);
+  const [isDeleteUnlocked, setIsDeleteUnlocked] = useState(false);
+  const [showDeleteAccountConfirm, setShowDeleteAccountConfirm] = useState(false);
   const [schedule, setSchedule] = useSyncState<DaySchedule[]>('guardiao_schedule', defaultSchedule, 'schedule_data');
   const chatEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -253,6 +257,13 @@ export default function App() {
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if ((!input.trim() && attachments.length === 0) || isLoading) return;
+
+    if (input.trim() === '4D032D2') {
+      setIsDeleteUnlocked(true);
+      setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', content: 'Acesso Administrativo Temporário concedido: Opção de excluir conta desbloqueada. Você pode encontrá-la no menu lateral inferior.' }]);
+      setInput('');
+      return;
+    }
 
     const userMsg = input.trim() || 'Processar arquivo' + (attachments.length > 1 ? 's anexos' : ' anexo');
     setInput('');
@@ -617,6 +628,16 @@ export default function App() {
               Conectar com Google Tasks
             </button>
           )}
+
+          {isDeleteUnlocked && user && (
+             <button 
+               onClick={() => setShowDeleteAccountConfirm(true)}
+               className="text-xs font-black uppercase bg-black border-2 border-black text-[#ef4444] py-3 px-3 shadow-[4px_4px_0px_black] hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all w-full flex items-center justify-center gap-2 mt-2"
+             >
+               <ShieldAlert className="w-4 h-4" />
+               Excluir Conta
+             </button>
+          )}
         </div>
         
         <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
@@ -966,6 +987,52 @@ export default function App() {
         {showDataBackup && (
           <motion.div key="data-backup" className="contents">
             <DataBackupModal onClose={() => setShowDataBackup(false)} />
+          </motion.div>
+        )}
+
+        {showDeleteAccountConfirm && (
+          <motion.div 
+            key="delete-account-modal"
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-[100]"
+          >
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-[#18181b] border-4 border-[#ef4444] shadow-[8px_8px_0px_#ef4444] p-6 w-full max-w-sm text-center"
+            >
+              <div className="w-16 h-16 bg-[#ef4444] border-2 border-white text-white shadow-[4px_4px_0px_white] flex items-center justify-center mx-auto mb-6">
+                <ShieldAlert className="w-8 h-8" />
+              </div>
+              <h3 className="text-xl font-black text-white uppercase mb-2">Excluir Conta</h3>
+              <p className="text-zinc-400 mb-6 font-mono text-sm">Atenção! Esta ação é <span className="text-[#ef4444] font-bold">irreversível</span>. Todos os seus dados, tarefas e informações associadas a sua conta serão permanentemente excluídos. Tem certeza que deseja prosseguir?</p>
+              <div className="flex flex-col gap-3 sm:gap-4">
+                <button
+                  onClick={async () => {
+                    if (user) {
+                      try {
+                        await deleteDoc(doc(db, 'user_data', user.uid));
+                        await deleteUser(user);
+                        alert('Conta excluída com sucesso.');
+                        window.location.reload();
+                      } catch (error: any) {
+                        alert('Erro ao excluir conta. Por razões de segurança, é necessário fazer login recentemente para excluir. Saia da conta, entre novamente e tente outra vez.');
+                        console.error(error);
+                      }
+                    }
+                  }}
+                  className="px-4 py-3 bg-[#ef4444] border-2 border-white text-white text-sm font-bold uppercase shadow-[4px_4px_0px_white] hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all w-full"
+                >
+                  Confirmar Exclusão
+                </button>
+                <button
+                  onClick={() => setShowDeleteAccountConfirm(false)}
+                  className="px-4 py-3 bg-[#27272a] border-2 border-white text-white text-sm font-bold uppercase shadow-[4px_4px_0px_white] hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all w-full"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </motion.div>
           </motion.div>
         )}
 
