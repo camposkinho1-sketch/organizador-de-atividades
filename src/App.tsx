@@ -576,7 +576,7 @@ export default function App() {
       )}
 
       {/* Sidebar: Simulated Google Tasks */}
-      <div className={`w-80 bg-[#18181b] border-r-4 border-white flex-col z-50 md:z-10 absolute md:relative inset-y-0 left-0 transform transition-transform duration-300 ease-in-out ${showMobileSidebar ? 'translate-x-0' : '-translate-x-full md:translate-x-0'} flex`}>
+      <div className={`w-[85vw] sm:w-80 max-w-sm bg-[#18181b] border-r-4 border-white flex-col z-50 md:z-10 absolute md:relative inset-y-0 left-0 transform transition-transform duration-300 ease-in-out ${showMobileSidebar ? 'translate-x-0' : '-translate-x-full md:translate-x-0'} flex`}>
         <div className="p-6 border-b-4 border-white flex flex-col gap-4 bg-[#a3e635]">
           <div className="flex items-center justify-between">
             <div>
@@ -686,13 +686,52 @@ export default function App() {
             )}
           </AnimatePresence>
         </div>
+        {/* Mobile Menu Action Buttons */}
+        <div className="p-4 border-t-4 border-white bg-[#18181b] flex flex-col gap-3 md:hidden">
+            <button 
+              onClick={() => { playClick(); setShowGrades(true); setShowMobileSidebar(false); }}
+              className="w-full flex items-center gap-3 bg-[#18181b] border-2 border-white text-white py-2 px-3 text-sm font-bold uppercase transition-all shadow-[2px_2px_0px_white] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none hover:bg-[#a3e635] hover:text-black"
+            >
+              <BoletimIcon className="w-5 h-5 font-bold" />
+              Ver Boletim
+            </button>
+            <button 
+              onClick={() => { playClick(); setShowSchedule(true); setShowMobileSidebar(false); }}
+              className="w-full flex items-center gap-3 bg-[#18181b] border-2 border-white text-white py-2 px-3 text-sm font-bold uppercase transition-all shadow-[2px_2px_0px_white] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none hover:bg-[#ec4899]"
+            >
+              <Settings className="w-5 h-5" />
+              Grade de Horários
+            </button>
+            <button 
+              onClick={() => { playClick(); setShowDataBackup(true); setShowMobileSidebar(false); }}
+              className="w-full flex items-center gap-3 bg-[#18181b] border-2 border-white text-white py-2 px-3 text-sm font-bold uppercase transition-all shadow-[2px_2px_0px_white] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none hover:bg-[#a3e635] hover:text-black"
+            >
+              <Save className="w-5 h-5" />
+              Backup e Dados
+            </button>
+            <button 
+              onClick={() => { playClick(); setShowApiSettings(true); setShowMobileSidebar(false); }}
+              className="w-full flex items-center gap-3 bg-[#18181b] border-2 border-white text-white py-2 px-3 text-sm font-bold uppercase transition-all shadow-[2px_2px_0px_white] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none hover:bg-[#3b82f6]"
+            >
+              <Key className="w-5 h-5" />
+              Chave API
+            </button>
+            <button 
+              onClick={() => { clearChat(); setShowMobileSidebar(false); }}
+              className="w-full flex items-center gap-3 bg-[#18181b] border-2 border-white text-white py-2 px-3 text-sm font-bold uppercase transition-all shadow-[2px_2px_0px_white] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none hover:bg-[#ef4444]"
+            >
+              <Eraser className="w-5 h-5" />
+              Limpar Chat
+            </button>
+        </div>
+
         <div className="p-4 border-t-4 border-white bg-[#18181b]">
           <button 
-            onClick={() => setShowPortfolio(true)}
-            className="w-full flex items-center justify-center gap-2 bg-[#ec4899] border-2 border-white text-white py-3 px-4 text-sm font-black uppercase transition-all shadow-[4px_4px_0px_white] hover:translate-x-1 hover:translate-y-1 hover:shadow-none"
+            onClick={() => { setShowPortfolio(true); setShowMobileSidebar(false); }}
+            className="w-full flex items-center justify-center gap-2 bg-[#ec4899] border-2 border-white text-white py-3 px-4 text-sm font-black uppercase transition-all shadow-[4px_4px_0px_white] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none"
           >
             <Book className="w-5 h-5" />
-            Caderno de Atividades
+            Caderno de Ativ.
           </button>
         </div>
       </div>
@@ -718,7 +757,7 @@ export default function App() {
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-1.5 md:gap-2 flex-shrink-0">
+          <div className="hidden md:flex items-center gap-1.5 md:gap-2 flex-shrink-0">
             <button 
               onClick={clearChat}
               className="flex items-center gap-2 px-2 md:px-3 py-2 bg-[#18181b] border-2 border-white text-white hover:bg-[#ef4444] transition-colors text-sm font-bold uppercase shadow-[2px_2px_0px_white] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none"
@@ -872,7 +911,7 @@ export default function App() {
               onChange={e => setInput(e.target.value)}
               placeholder="Ex: Tenho um trabalho de Química..."
               disabled={isLoading}
-              className="w-full bg-[#27272a] border-2 border-white text-white font-mono py-4 pl-12 pr-14 outline-none focus:ring-0 focus:shadow-[inset_4px_4px_0px_rgba(255,255,255,0.1)] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[4px_4px_0px_white]"
+              className="w-full bg-[#27272a] border-2 border-white text-white font-mono py-3 md:py-4 pl-12 pr-14 outline-none focus:ring-0 focus:shadow-[inset_4px_4px_0px_rgba(255,255,255,0.1)] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[4px_4px_0px_white] text-sm md:text-base"
             />
             <button 
               type="submit" 
@@ -946,10 +985,10 @@ export default function App() {
               </div>
               <h3 className="text-xl font-black text-white uppercase mb-2">Excluir Lembrete</h3>
               <p className="text-zinc-400 mb-6 font-mono text-sm">Você tem certeza que deseja excluir este lembrete?</p>
-              <div className="flex justify-center gap-4">
+              <div className="flex justify-center gap-3 sm:gap-4">
                 <button
                   onClick={() => setTaskToDelete(null)}
-                  className="px-4 py-3 bg-[#27272a] border-2 border-white text-white font-bold uppercase shadow-[4px_4px_0px_white] hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all flex-1"
+                  className="px-2 sm:px-4 py-3 bg-[#27272a] border-2 border-white text-white text-xs sm:text-sm font-bold uppercase shadow-[4px_4px_0px_white] hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all flex-1"
                 >
                   Cancelar
                 </button>
@@ -960,9 +999,9 @@ export default function App() {
                     }
                     setTaskToDelete(null);
                   }}
-                  className="px-4 py-3 bg-[#ef4444] border-2 border-white text-white font-bold uppercase shadow-[4px_4px_0px_white] hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all flex-1"
+                  className="px-2 sm:px-4 py-3 bg-[#ef4444] border-2 border-white text-white text-xs sm:text-sm font-bold uppercase shadow-[4px_4px_0px_white] hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all flex-1"
                 >
-                  Sim, excluir
+                  Excluir
                 </button>
               </div>
             </motion.div>

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { auth, db } from './firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore';
 
 export function useSyncState<T>(key: string, initialValue: T, column: string) {
   const [value, setValue] = useState<T>(() => {
@@ -19,30 +19,37 @@ export function useSyncState<T>(key: string, initialValue: T, column: string) {
     return () => unsubscribe();
   }, []);
 
-  // Fetch initial data from Firestore
+  // Listen for real-time changes across devices
   useEffect(() => {
     if (!sessionUser) return;
 
-    const fetchConfig = async () => {
-      try {
-        const docRef = doc(db, 'user_data', sessionUser.uid);
-        const docSnap = await getDoc(docRef);
-        
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          if (data && data[column]) {
-            setValue(data[column]);
-            localStorage.setItem(key, JSON.stringify(data[column]));
-            localStorage.setItem(`${key}_autobackup`, JSON.stringify(data[column]));
-          }
+    const docRef = doc(db, 'user_data', sessionUser.uid);
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data && data[column] !== undefined) {
+          setValue(prev => {
+            const stringifiedPrev = JSON.stringify(prev);
+            const stringifiedNew = JSON.stringify(data[column]);
+            if (stringifiedPrev !== stringifiedNew) {
+              try {
+                localStorage.setItem(key, stringifiedNew);
+                localStorage.setItem(`${key}_autobackup`, stringifiedNew);
+              } catch (e) {
+                console.error("Failed to save to localStorage:", e);
+              }
+              return data[column];
+            }
+            return prev;
+          });
         }
-      } catch (error) {
-        console.error("Error fetching data:", error);
       }
-    };
+    }, (error) => {
+      console.error("Error listening to data:", error);
+    });
     
-    fetchConfig();
-  }, [sessionUser, column, key]); // execute only once when user loads
+    return () => unsubscribe();
+  }, [sessionUser, column, key]);
 
   // Wrap the setter to also update Firestore and localStorage
   const setSyncedValue = (newValue: T | ((val: T) => T)) => {

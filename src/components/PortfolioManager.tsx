@@ -179,8 +179,8 @@ export function PortfolioManager({ schedule, tasks, onClose, onDeleteTask, onRes
               <Book className="w-6 h-6 text-indigo-700" />
             </div>
             <div>
-              <h2 className="font-bold text-slate-800 text-xl">Caderno de Atividades</h2>
-              <p className="text-sm text-slate-600">Portfólio de atividades concluídas por matéria</p>
+              <h2 className="font-bold text-slate-800 text-lg sm:text-xl">Caderno de Atividades</h2>
+              <p className="text-xs sm:text-sm text-slate-600 hidden sm:block">Portfólio de atividades concluídas por matéria</p>
             </div>
           </div>
           <button 
