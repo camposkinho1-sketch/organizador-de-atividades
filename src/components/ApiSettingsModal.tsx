@@ -30,7 +30,7 @@ export const ApiSettingsModal = ({ onClose }: { onClose: () => void }) => {
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
-        className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col"
+        className="bg-white text-slate-900 rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col"
       >
         <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
           <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">

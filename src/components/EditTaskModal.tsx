@@ -173,7 +173,7 @@ export function EditTaskModal({ task, onClose, onSave }: EditTaskModalProps) {
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden max-h-[90vh] flex flex-col"
+        className="bg-white text-slate-900 rounded-2xl shadow-xl w-full max-w-md overflow-hidden max-h-[90vh] flex flex-col"
       >
         <div className="px-6 py-4 border-b flex justify-between items-center bg-blue-50/50 flex-shrink-0">
           <h2 className="font-bold text-slate-800 text-lg">Editar Lembrete</h2>
@@ -321,7 +321,7 @@ export function EditTaskModal({ task, onClose, onSave }: EditTaskModalProps) {
             ) : (
               <div className="flex flex-col gap-2">
                 {attachments.map(att => (
-                  <div key={att.id} className="flex items-center justify-between p-2.5 border border-slate-200 rounded-lg bg-white shadow-sm hover:border-blue-200 group">
+                  <div key={att.id} className="flex items-center justify-between p-2.5 border border-slate-200 rounded-lg bg-white text-slate-900 shadow-sm hover:border-blue-200 group">
                     <div className="flex items-center gap-3 overflow-hidden">
                       <div className={`p-1.5 rounded-md flex-shrink-0 ${att.type === 'link' ? 'bg-indigo-50 text-indigo-500' : 'bg-blue-50 text-blue-500'}`}>
                         {att.type === 'image' ? <ImageIcon className="w-4 h-4" /> : 
@@ -380,7 +380,7 @@ export function EditTaskModal({ task, onClose, onSave }: EditTaskModalProps) {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="bg-white rounded-2xl p-6 shadow-xl w-full max-w-xs text-center"
+            className="bg-white text-slate-900 rounded-2xl p-6 shadow-xl w-full max-w-xs text-center"
           >
             <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
               <Trash2 className="w-6 h-6" />

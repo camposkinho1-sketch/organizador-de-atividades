@@ -90,6 +90,7 @@ function UnitDetailsModal({
   unit: UnitDetail; 
   onSave: (newUnit: UnitDetail) => void; 
   onClose: () => void;
+  key?: React.Key;
 }) {
   const [editedUnit, setEditedUnit] = useState<UnitDetail>(() => {
     if (!unit) return createEmptyUnit();
@@ -140,12 +141,17 @@ function UnitDetailsModal({
   const currentComputedGrade = getUnitGrade(editedUnit);
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4">
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4"
+    >
       <motion.div 
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.95, opacity: 0 }}
-        className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[85vh]"
+        className="bg-white text-slate-900 rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[85vh]"
       >
         <div className="px-5 py-4 border-b flex justify-between items-center bg-slate-50">
           <div>
@@ -214,7 +220,7 @@ function UnitDetailsModal({
                     <div className="w-8"></div>
                   </div>
                   {editedUnit.evaluations.map(ev => (
-                    <div key={ev.id} className="flex gap-2 items-center bg-white p-2 rounded-lg border border-slate-200 shadow-sm">
+                    <div key={ev.id} className="flex gap-2 items-center bg-white text-slate-900 p-2 rounded-lg border border-slate-200 shadow-sm">
                       <input 
                         type="text"
                         placeholder="Ex: Prova"
@@ -265,7 +271,7 @@ function UnitDetailsModal({
           </button>
         </div>
       </motion.div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -394,7 +400,7 @@ export function GradesManager({ schedule, onClose }: GradesManagerProps) {
         exit={{ y: 100, opacity: 0 }}
         className="bg-slate-50 w-full sm:max-w-6xl sm:rounded-2xl h-[90vh] flex flex-col shadow-2xl rounded-t-2xl overflow-hidden"
       >
-        <div className="px-6 py-4 border-b flex justify-between items-center bg-white flex-shrink-0">
+        <div className="px-6 py-4 border-b flex justify-between items-center bg-white text-slate-900 flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-slate-100 rounded-lg">
               <BoletimIcon className="w-6 h-6" />
@@ -412,7 +418,7 @@ export function GradesManager({ schedule, onClose }: GradesManagerProps) {
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col gap-6 min-h-0">
           
           {/* Settings Section */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex-shrink-0">
+          <div className="bg-white text-slate-900 rounded-xl border border-slate-200 shadow-sm flex-shrink-0">
             <div 
               className="px-5 py-4 border-b border-slate-100 flex justify-between items-center cursor-pointer hover:bg-slate-50 transition-colors rounded-xl"
               onClick={() => setIsEditingSettings(!isEditingSettings)}
@@ -498,7 +504,7 @@ export function GradesManager({ schedule, onClose }: GradesManagerProps) {
           </div>
 
           {/* Grades Table */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
+          <div className="bg-white text-slate-900 rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
             <div className="min-w-[800px] inline-block w-full align-middle">
               <table className="w-full border-collapse text-sm">
                 <thead>
@@ -549,7 +555,7 @@ export function GradesManager({ schedule, onClose }: GradesManagerProps) {
                                   onClick={() => setEditingCell({ subjectName, unitIndex })}
                                   className={`w-full py-2 px-1 rounded-lg border transition-all text-sm flex items-center justify-center gap-1 group-hover:scale-105 active:scale-95 ${
                                     (unit && computedGrade !== null)
-                                      ? unit.useEvaluations ? 'border-amber-200 bg-amber-50 text-amber-800 font-bold shadow-sm' : 'border-slate-200 bg-white text-slate-800 font-bold shadow-sm hover:border-amber-300' 
+                                      ? unit.useEvaluations ? 'border-amber-200 bg-amber-50 text-amber-800 font-bold shadow-sm' : 'border-slate-200 bg-white text-slate-900 text-slate-800 font-bold shadow-sm hover:border-amber-300' 
                                       : 'border-dashed border-slate-300 text-slate-400 bg-slate-50/50 hover:bg-slate-100 hover:text-slate-600'
                                   }`}
                                 >
@@ -628,19 +634,18 @@ export function GradesManager({ schedule, onClose }: GradesManagerProps) {
 
       <AnimatePresence>
         {editingCell && (
-          <motion.div key="unit-details-modal" className="fixed inset-0 z-[60]">
-            <UnitDetailsModal 
-              subjectName={editingCell.subjectName}
-              unitIndex={editingCell.unitIndex}
-              unit={
-                (config.grades[editingCell.subjectName] && config.grades[editingCell.subjectName].units[editingCell.unitIndex]) 
-                ? config.grades[editingCell.subjectName].units[editingCell.unitIndex] 
-                : createEmptyUnit()
-              }
-              onSave={(newUnit) => handleSaveUnit(editingCell.subjectName, editingCell.unitIndex, newUnit)}
-              onClose={() => setEditingCell(null)}
-            />
-          </motion.div>
+          <UnitDetailsModal 
+            key={`unit-details-${editingCell.subjectName}-${editingCell.unitIndex}`}
+            subjectName={editingCell.subjectName}
+            unitIndex={editingCell.unitIndex}
+            unit={
+              (config.grades[editingCell.subjectName] && config.grades[editingCell.subjectName].units[editingCell.unitIndex]) 
+              ? config.grades[editingCell.subjectName].units[editingCell.unitIndex] 
+              : createEmptyUnit()
+            }
+            onSave={(newUnit) => handleSaveUnit(editingCell.subjectName, editingCell.unitIndex, newUnit)}
+            onClose={() => setEditingCell(null)}
+          />
         )}
       </AnimatePresence>
     </div>

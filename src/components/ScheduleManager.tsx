@@ -143,7 +143,7 @@ export function ScheduleManager({ schedule, setSchedule, onClose }: ScheduleMana
         initial={{ y: 100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 100, opacity: 0 }}
-        className="bg-white w-full sm:max-w-6xl sm:rounded-2xl h-[90vh] flex flex-col shadow-2xl rounded-t-2xl overflow-hidden"
+        className="bg-white text-slate-900 w-full sm:max-w-6xl sm:rounded-2xl h-[90vh] flex flex-col shadow-2xl rounded-t-2xl overflow-hidden"
       >
         <div className="px-6 py-4 border-b flex justify-between items-center bg-slate-50 flex-shrink-0">
           <div>
@@ -165,7 +165,7 @@ export function ScheduleManager({ schedule, setSchedule, onClose }: ScheduleMana
         </div>
 
         <div className="flex-1 overflow-auto p-4 bg-slate-100">
-          <div className="min-w-[800px] rounded-xl border border-slate-200 shadow-sm overflow-hidden bg-white">
+          <div className="min-w-[800px] rounded-xl border border-slate-200 shadow-sm overflow-hidden bg-white text-slate-900">
             <table className="w-full border-collapse">
               <thead>
                 <tr>

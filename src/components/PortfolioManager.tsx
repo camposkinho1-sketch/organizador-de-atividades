@@ -96,7 +96,7 @@ export function PortfolioManager({ schedule, tasks, onClose, onDeleteTask, onRes
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }}
       key={task.id}
-      className="bg-white border text-left border-slate-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow flex flex-col lg:flex-row lg:items-center justify-between gap-4 group"
+      className="bg-white text-slate-900 border text-left border-slate-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow flex flex-col lg:flex-row lg:items-center justify-between gap-4 group"
     >
       <div className="flex flex-col flex-1">
         <div className="flex items-start gap-4">
@@ -171,7 +171,7 @@ export function PortfolioManager({ schedule, tasks, onClose, onDeleteTask, onRes
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl h-[85vh] flex flex-col overflow-hidden border border-slate-200"
+        className="bg-white text-slate-900 rounded-2xl shadow-2xl w-full max-w-5xl h-[85vh] flex flex-col overflow-hidden border border-slate-200"
       >
         <div className="px-6 py-4 border-b flex justify-between items-center bg-indigo-50/50">
           <div className="flex items-center gap-3">
@@ -225,8 +225,8 @@ export function PortfolioManager({ schedule, tasks, onClose, onDeleteTask, onRes
           </div>
 
           {/* Main Content - Tasks */}
-          <div className="flex-1 bg-white flex flex-col overflow-y-auto">
-            <div className="p-6 border-b border-slate-100 bg-white sticky top-0 z-10">
+          <div className="flex-1 bg-white text-slate-900 flex flex-col overflow-y-auto">
+            <div className="p-6 border-b border-slate-100 bg-white text-slate-900 sticky top-0 z-10">
               <h3 className="font-bold text-slate-800 text-xl flex items-center gap-2">
                 {currentSubject}
               </h3>

@@ -83,7 +83,7 @@ export function CompleteTaskModal({ task, onClose, onComplete }: CompleteTaskMod
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden"
+        className="bg-white text-slate-900 rounded-2xl shadow-xl w-full max-w-md overflow-hidden"
       >
         <div className="px-6 py-4 border-b flex justify-between items-center bg-blue-50/50">
           <h2 className="font-bold text-slate-800 text-lg flex items-center gap-2">
@@ -121,7 +121,7 @@ export function CompleteTaskModal({ task, onClose, onComplete }: CompleteTaskMod
                 onClick={() => fileInputRef.current?.click()}
                 className="w-full aspect-video flex flex-col items-center justify-center gap-3 border-2 border-dashed border-slate-300 rounded-lg bg-slate-50 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 transition-colors text-slate-500"
               >
-                <div className="p-3 bg-white rounded-full shadow-sm">
+                <div className="p-3 bg-white text-slate-900 rounded-full shadow-sm">
                   <Upload className="w-6 h-6" />
                 </div>
                 <div className="flex flex-col items-center gap-1">
