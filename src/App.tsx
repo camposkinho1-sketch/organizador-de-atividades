@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Send, CheckCircle, Clock, Calendar as CalendarIcon, User, AlertCircle, Settings, GraduationCap, Menu, X, LogOut, Book, Paperclip, FileIcon, ImageIcon, Edit2, Key, Trash2, Eraser, Save, ShieldAlert } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ScheduleManager, DaySchedule, defaultSchedule } from './components/ScheduleManager';
-import { GradesManager } from './components/GradesManager';
+import { GradesManager, GradesConfig, defaultGradesConfig, createEmptyUnit } from './components/GradesManager';
 import { PortfolioManager } from './components/PortfolioManager';
 import { EditTaskModal } from './components/EditTaskModal';
 import { CompleteTaskModal } from './components/CompleteTaskModal';
@@ -65,6 +65,7 @@ export default function App() {
   const [isDeleteUnlocked, setIsDeleteUnlocked] = useState(false);
   const [showDeleteAccountConfirm, setShowDeleteAccountConfirm] = useState(false);
   const [schedule, setSchedule] = useSyncState<DaySchedule[]>('guardiao_schedule', defaultSchedule, 'schedule_data');
+  const [gradesConfig, setGradesConfig] = useSyncState<GradesConfig>('guardiao_grades', defaultGradesConfig, 'grades_data');
   const chatEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -395,13 +396,81 @@ export default function App() {
     setCompletingTask(null);
   };
 
+  const handleCompleteEvaluationTask = (task: Task) => {
+    // Determine subject and evaluation name
+    const match = task.title.match(/^\[(.*?)\]\s*-\s*\[?(.*?)\]?$/);
+    const subjectName = match ? match[1].trim() : "Geral";
+    const evalName = match ? match[2].trim() : task.title;
+
+    let unitIndex = 0;
+    if (task.notes) {
+      const unitMatch = task.notes.match(/(\d+)[ªa]?\s*unidade/i) || task.notes.match(/unidade\s*(\d+)/i);
+      if (unitMatch && unitMatch[1]) {
+        unitIndex = parseInt(unitMatch[1]) - 1;
+      }
+    }
+    if (unitIndex < 0) unitIndex = 0;
+    // Cap unitIndex based on current config safely.
+    // If somehow config.numberOfUnits is not set, use 4 as default limit.
+    const maxUnits = gradesConfig?.numberOfUnits || 4;
+    if (unitIndex >= maxUnits) unitIndex = maxUnits - 1;
+
+    // Add to Boletim
+    setGradesConfig(prev => {
+      const newGrades = { ...prev.grades };
+      let subject = newGrades[subjectName];
+      if (!subject) {
+        subject = {
+          subjectName,
+          units: Array(prev.numberOfUnits || 4).fill(null).map(createEmptyUnit)
+        };
+      } else {
+        // Deep clone units
+        subject = { ...subject, units: subject.units.map(u => ({ ...u, evaluations: u.evaluations ? [...u.evaluations] : [] })) };
+      }
+
+      // Ensure unit object exists
+      if (!subject.units[unitIndex]) {
+         subject.units[unitIndex] = createEmptyUnit();
+      }
+      const unit = subject.units[unitIndex];
+      
+      unit.useEvaluations = true;
+      unit.evaluations.push({
+        id: Math.random().toString(36).substr(2, 9),
+        name: evalName,
+        grade: null, 
+        weight: 1
+      });
+      subject.units[unitIndex] = unit;
+      newGrades[subjectName] = subject;
+      
+      return { ...prev, grades: newGrades };
+    });
+
+    // Mark as completed so it exits the list
+    setTasks(prev => prev.map(t => 
+      t.id === task.id ? { ...t, status: 'completed' } : t
+    ));
+
+    if (task.googleTaskId && task.googleTaskListId) {
+      updateGoogleTask(task.googleTaskId, task.googleTaskListId, { status: 'completed' });
+    }
+    
+    playTaskCompleted();
+  };
+
   const toggleTaskCompletion = (taskId: string) => {
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
     
     if (task.status !== 'completed') {
-      // Open modal to require photo instead of completing directly
-      setCompletingTask(task);
+      const isEvaluation = /teste|prova|avalia[çc][ãa]o|avaliativa/i.test(task.title);
+      if (isEvaluation) {
+        handleCompleteEvaluationTask(task);
+      } else {
+        setCompletingTask(task);
+      }
     } else {
       // Revert to pending
       setTasks(prev => prev.map(t => 

@@ -33,7 +33,10 @@ export function PortfolioManager({ schedule, tasks, onClose, onDeleteTask, onRes
     return Array.from(subjects).sort();
   }, [schedule]);
 
-  const completedTasks = useMemo(() => tasks.filter(t => t.status === 'completed'), [tasks]);
+  const completedTasks = useMemo(() => {
+    const isEvaluation = (title: string) => /teste|prova|avalia[çc][ãa]o|avaliativa/i.test(title);
+    return tasks.filter(t => t.status === 'completed' && !isEvaluation(t.title));
+  }, [tasks]);
 
   const tasksBySubject = useMemo(() => {
     const map = new Map<string, Task[]>();

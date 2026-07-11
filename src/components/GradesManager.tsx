@@ -36,7 +36,7 @@ interface GradesManagerProps {
   onClose: () => void;
 }
 
-const defaultGradesConfig: GradesConfig = {
+export const defaultGradesConfig: GradesConfig = {
   schoolName: 'Nome do Colégio',
   unitPassingAverage: 7.0,
   finalPassingAverage: 7.0,
@@ -44,7 +44,7 @@ const defaultGradesConfig: GradesConfig = {
   grades: {}
 };
 
-const createEmptyUnit = (): UnitDetail => ({
+export const createEmptyUnit = (): UnitDetail => ({
   manualGrade: null,
   evaluations: [],
   useEvaluations: false
