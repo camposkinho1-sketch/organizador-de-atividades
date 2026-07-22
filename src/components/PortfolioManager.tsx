@@ -106,8 +106,8 @@ export function PortfolioManager({ schedule, tasks, onClose, onDeleteTask, onRes
           <div className="mt-1 lg:mt-0 rounded-full w-8 h-8 flex items-center justify-center bg-green-100 text-green-600 flex-shrink-0">
             <CheckCircle className="w-5 h-5" />
           </div>
-          <div className="flex-1">
-            <h4 className="font-medium text-slate-800 text-base">{task.title}</h4>
+          <div className="flex-1 min-w-0 w-full">
+            <h4 className="font-medium text-slate-800 text-base break-words break-all sm:break-normal">{task.title}</h4>
             <div className="flex items-center gap-4 mt-2 text-xs font-medium text-slate-500">
               <span className="flex items-center gap-1.5 bg-slate-100 px-2 py-1 rounded-md">
                 <CalendarIcon className="w-3.5 h-3.5" />

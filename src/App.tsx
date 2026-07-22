@@ -123,22 +123,22 @@ export default function App() {
       <div className="flex items-start gap-3 cursor-pointer flex-1 min-w-0" onClick={() => toggleTaskCompletion(task.id)}>
         <div className="mt-0.5 w-5 h-5 flex-shrink-0 flex items-center justify-center border-2 transition-colors border-white group-hover:bg-[#a3e635]">
         </div>
-        <div className="min-w-0 flex-1">
-          <h3 className="font-bold text-sm text-white uppercase break-words">
+        <div className="min-w-0 flex-1 w-full">
+          <h3 className="font-bold text-sm text-white uppercase break-words break-all sm:break-normal">
             {task.title}
           </h3>
           <div className="flex flex-wrap items-center gap-3 mt-2 text-xs font-bold text-zinc-400">
-            <span className="flex items-center gap-1">
+            <span className="flex items-center gap-1 shrink-0">
               <CalendarIcon className="w-3.5 h-3.5" />
               {task.date}
             </span>
-            <span className="flex items-center gap-1">
+            <span className="flex items-center gap-1 shrink-0">
               <Clock className="w-3.5 h-3.5" />
               {task.time}
             </span>
           </div>
           {task.notes && (
-            <p className="mt-2 text-xs text-zinc-300 whitespace-pre-wrap leading-relaxed border-l-4 border-[#3b82f6] pl-2 font-mono break-words">
+            <p className="mt-2 text-xs text-zinc-300 whitespace-pre-wrap leading-relaxed border-l-4 border-[#3b82f6] pl-2 font-mono break-words break-all sm:break-normal">
               {task.notes}
             </p>
           )}
@@ -746,7 +746,7 @@ export default function App() {
       )}
 
       {/* Sidebar: Simulated Google Tasks */}
-      <div className={`w-full md:w-80 bg-[#18181b] border-r-4 border-white flex-col z-50 md:z-10 absolute md:relative inset-y-0 left-0 transform transition-transform duration-300 ease-in-out ${showMobileSidebar ? 'translate-x-0' : '-translate-x-full md:translate-x-0'} flex`}>
+      <div className={`w-[85vw] sm:w-80 md:w-80 bg-[#18181b] border-r-4 border-white flex-col z-50 md:z-10 absolute md:relative inset-y-0 left-0 transform transition-transform duration-300 ease-in-out ${showMobileSidebar ? 'translate-x-0' : '-translate-x-full md:translate-x-0'} flex`}>
         <div className="p-6 border-b-4 border-white flex flex-col gap-4 bg-[#a3e635]">
           <div className="flex items-center justify-between">
             <div>
