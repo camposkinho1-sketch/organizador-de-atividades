@@ -829,41 +829,41 @@ export default function App() {
           </AnimatePresence>
         </div>
         {/* Mobile Menu Action Buttons */}
-        <div className="p-4 border-t-4 border-white bg-[#18181b] flex flex-col gap-3 md:hidden">
+        <div className="p-4 border-t-4 border-white bg-[#18181b] flex flex-row justify-between gap-2 md:hidden">
             <button 
               onClick={() => { playClick(); setShowGrades(true); setShowMobileSidebar(false); }}
-              className="w-full flex items-center gap-3 bg-[#18181b] border-2 border-white text-white py-2 px-3 text-sm font-bold uppercase transition-all shadow-[2px_2px_0px_white] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none hover:bg-[#a3e635] hover:text-black"
+              className="flex-1 flex items-center justify-center bg-[#18181b] border-2 border-white text-white py-3 px-2 transition-all shadow-[2px_2px_0px_white] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none hover:bg-[#a3e635] hover:text-black"
+              title="Ver Boletim"
             >
               <BoletimIcon className="w-5 h-5 font-bold" />
-              Ver Boletim
             </button>
             <button 
               onClick={() => { playClick(); setShowSchedule(true); setShowMobileSidebar(false); }}
-              className="w-full flex items-center gap-3 bg-[#18181b] border-2 border-white text-white py-2 px-3 text-sm font-bold uppercase transition-all shadow-[2px_2px_0px_white] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none hover:bg-[#ec4899]"
+              className="flex-1 flex items-center justify-center bg-[#18181b] border-2 border-white text-white py-3 px-2 transition-all shadow-[2px_2px_0px_white] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none hover:bg-[#ec4899]"
+              title="Grade de Horários"
             >
               <Settings className="w-5 h-5" />
-              Grade de Horários
             </button>
             <button 
               onClick={() => { playClick(); setShowDataBackup(true); setShowMobileSidebar(false); }}
-              className="w-full flex items-center gap-3 bg-[#18181b] border-2 border-white text-white py-2 px-3 text-sm font-bold uppercase transition-all shadow-[2px_2px_0px_white] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none hover:bg-[#a3e635] hover:text-black"
+              className="flex-1 flex items-center justify-center bg-[#18181b] border-2 border-white text-[#a3e635] py-3 px-2 transition-all shadow-[2px_2px_0px_white] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none hover:bg-[#a3e635] hover:text-black"
+              title="Backup e Dados"
             >
               <Save className="w-5 h-5" />
-              Backup e Dados
             </button>
             <button 
               onClick={() => { playClick(); setShowApiSettings(true); setShowMobileSidebar(false); }}
-              className="w-full flex items-center gap-3 bg-[#18181b] border-2 border-white text-white py-2 px-3 text-sm font-bold uppercase transition-all shadow-[2px_2px_0px_white] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none hover:bg-[#3b82f6]"
+              className="flex-1 flex items-center justify-center bg-[#18181b] border-2 border-white text-white py-3 px-2 transition-all shadow-[2px_2px_0px_white] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none hover:bg-[#3b82f6]"
+              title="Chave API"
             >
               <Key className="w-5 h-5" />
-              Chave API
             </button>
             <button 
               onClick={() => { clearChat(); setShowMobileSidebar(false); }}
-              className="w-full flex items-center gap-3 bg-[#18181b] border-2 border-white text-white py-2 px-3 text-sm font-bold uppercase transition-all shadow-[2px_2px_0px_white] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none hover:bg-[#ef4444]"
+              className="flex-1 flex items-center justify-center bg-[#18181b] border-2 border-white text-white py-3 px-2 transition-all shadow-[2px_2px_0px_white] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none hover:bg-[#ef4444]"
+              title="Limpar Chat"
             >
               <Eraser className="w-5 h-5" />
-              Limpar Chat
             </button>
         </div>
 
