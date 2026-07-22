@@ -118,16 +118,16 @@ export default function App() {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }}
       key={task.id}
-      className="p-4 bg-[#27272a] border-2 border-white shadow-[4px_4px_0px_white] transition-all duration-200 flex justify-between items-start group"
+      className="p-3 sm:p-4 bg-[#27272a] border-2 border-white shadow-[4px_4px_0px_white] transition-all duration-200 flex flex-col sm:flex-row sm:justify-between sm:items-start group gap-3 sm:gap-0"
     >
-      <div className="flex items-start gap-3 cursor-pointer flex-1" onClick={() => toggleTaskCompletion(task.id)}>
-        <div className="mt-0.5 w-5 h-5 flex items-center justify-center border-2 transition-colors border-white group-hover:bg-[#a3e635]">
+      <div className="flex items-start gap-3 cursor-pointer flex-1 min-w-0" onClick={() => toggleTaskCompletion(task.id)}>
+        <div className="mt-0.5 w-5 h-5 flex-shrink-0 flex items-center justify-center border-2 transition-colors border-white group-hover:bg-[#a3e635]">
         </div>
-        <div>
-          <h3 className="font-bold text-sm text-white uppercase">
+        <div className="min-w-0 flex-1">
+          <h3 className="font-bold text-sm text-white uppercase break-words">
             {task.title}
           </h3>
-          <div className="flex items-center gap-3 mt-2 text-xs font-bold text-zinc-400">
+          <div className="flex flex-wrap items-center gap-3 mt-2 text-xs font-bold text-zinc-400">
             <span className="flex items-center gap-1">
               <CalendarIcon className="w-3.5 h-3.5" />
               {task.date}
@@ -138,23 +138,23 @@ export default function App() {
             </span>
           </div>
           {task.notes && (
-            <p className="mt-2 text-xs text-zinc-300 whitespace-pre-wrap leading-relaxed border-l-4 border-[#3b82f6] pl-2 font-mono">
+            <p className="mt-2 text-xs text-zinc-300 whitespace-pre-wrap leading-relaxed border-l-4 border-[#3b82f6] pl-2 font-mono break-words">
               {task.notes}
             </p>
           )}
         </div>
       </div>
-      <div className="flex items-center gap-1 ml-2">
+      <div className="flex items-center gap-2 sm:gap-1 sm:ml-2 flex-shrink-0 justify-end sm:justify-start w-full sm:w-auto border-t-2 border-zinc-700 sm:border-0 pt-2 sm:pt-0 mt-1 sm:mt-0">
         <button
           onClick={(e) => { e.stopPropagation(); setEditingTask(task); }}
-          className="p-2 text-zinc-400 hover:text-white border border-transparent hover:border-white hover:bg-[#3b82f6] transition-colors opacity-0 group-hover:opacity-100"
+          className="flex-1 sm:flex-none flex justify-center items-center p-2 text-zinc-400 hover:text-white border-2 border-transparent hover:border-white hover:bg-[#3b82f6] transition-colors sm:opacity-0 sm:group-hover:opacity-100 bg-[#3f3f46] sm:bg-transparent"
           title="Editar Atividade"
         >
           <Edit2 className="w-4 h-4" />
         </button>
         <button
           onClick={(e) => { e.stopPropagation(); promptDeleteTask(task.id); }}
-          className="p-2 text-zinc-400 hover:text-white border border-transparent hover:border-white hover:bg-[#ef4444] transition-colors opacity-0 group-hover:opacity-100"
+          className="flex-1 sm:flex-none flex justify-center items-center p-2 text-zinc-400 hover:text-white border-2 border-transparent hover:border-white hover:bg-[#ef4444] transition-colors sm:opacity-0 sm:group-hover:opacity-100 bg-[#3f3f46] sm:bg-transparent"
           title="Excluir Atividade"
         >
           <Trash2 className="w-4 h-4" />
@@ -746,7 +746,7 @@ export default function App() {
       )}
 
       {/* Sidebar: Simulated Google Tasks */}
-      <div className={`w-[85vw] sm:w-80 max-w-sm bg-[#18181b] border-r-4 border-white flex-col z-50 md:z-10 absolute md:relative inset-y-0 left-0 transform transition-transform duration-300 ease-in-out ${showMobileSidebar ? 'translate-x-0' : '-translate-x-full md:translate-x-0'} flex`}>
+      <div className={`w-full md:w-80 bg-[#18181b] border-r-4 border-white flex-col z-50 md:z-10 absolute md:relative inset-y-0 left-0 transform transition-transform duration-300 ease-in-out ${showMobileSidebar ? 'translate-x-0' : '-translate-x-full md:translate-x-0'} flex`}>
         <div className="p-6 border-b-4 border-white flex flex-col gap-4 bg-[#a3e635]">
           <div className="flex items-center justify-between">
             <div>
