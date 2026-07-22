@@ -72,6 +72,97 @@ export default function App() {
 
   const { user, googleAccessToken, signIn, logOut } = useAuth();
 
+  const getTasksByDate = () => {
+    const activeTasks = tasks.filter(t => t.status !== 'completed');
+    const grouped = activeTasks.reduce((acc, task) => {
+      let d = task.date || 'Sem data';
+      if (!acc[d]) acc[d] = [];
+      acc[d].push(task);
+      return acc;
+    }, {} as Record<string, Task[]>);
+
+    return Object.keys(grouped).sort((a, b) => {
+      if (a === 'Sem data') return 1;
+      if (b === 'Sem data') return -1;
+      // Convert to Date objects to compare properly
+      const [yA, mA, dA] = a.split('-');
+      const [yB, mB, dB] = b.split('-');
+      const dateA = new Date(parseInt(yA), parseInt(mA) - 1, parseInt(dA));
+      const dateB = new Date(parseInt(yB), parseInt(mB) - 1, parseInt(dB));
+      return dateA.getTime() - dateB.getTime();
+    }).map(date => {
+      // Format date nicely
+      let formattedDate = date;
+      if (date !== 'Sem data') {
+        const [y, m, d] = date.split('-');
+        const taskDate = new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const diffTime = taskDate.getTime() - today.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+        
+        if (diffDays === 0) formattedDate = 'Hoje';
+        else if (diffDays === 1) formattedDate = 'Amanhã';
+        else if (diffDays === -1) formattedDate = 'Ontem (Atrasado)';
+        else if (diffDays < -1) formattedDate = `Atrasado há ${Math.abs(diffDays)} dias`;
+        else formattedDate = `${d}/${m}/${y}`;
+      }
+      return { dateKey: date, label: formattedDate, tasks: grouped[date] };
+    });
+  };
+
+  const renderTask = (task: Task) => (
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      key={task.id}
+      className="p-4 bg-[#27272a] border-2 border-white shadow-[4px_4px_0px_white] transition-all duration-200 flex justify-between items-start group"
+    >
+      <div className="flex items-start gap-3 cursor-pointer flex-1" onClick={() => toggleTaskCompletion(task.id)}>
+        <div className="mt-0.5 w-5 h-5 flex items-center justify-center border-2 transition-colors border-white group-hover:bg-[#a3e635]">
+        </div>
+        <div>
+          <h3 className="font-bold text-sm text-white uppercase">
+            {task.title}
+          </h3>
+          <div className="flex items-center gap-3 mt-2 text-xs font-bold text-zinc-400">
+            <span className="flex items-center gap-1">
+              <CalendarIcon className="w-3.5 h-3.5" />
+              {task.date}
+            </span>
+            <span className="flex items-center gap-1">
+              <Clock className="w-3.5 h-3.5" />
+              {task.time}
+            </span>
+          </div>
+          {task.notes && (
+            <p className="mt-2 text-xs text-zinc-300 whitespace-pre-wrap leading-relaxed border-l-4 border-[#3b82f6] pl-2 font-mono">
+              {task.notes}
+            </p>
+          )}
+        </div>
+      </div>
+      <div className="flex items-center gap-1 ml-2">
+        <button
+          onClick={(e) => { e.stopPropagation(); setEditingTask(task); }}
+          className="p-2 text-zinc-400 hover:text-white border border-transparent hover:border-white hover:bg-[#3b82f6] transition-colors opacity-0 group-hover:opacity-100"
+          title="Editar Atividade"
+        >
+          <Edit2 className="w-4 h-4" />
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); promptDeleteTask(task.id); }}
+          className="p-2 text-zinc-400 hover:text-white border border-transparent hover:border-white hover:bg-[#ef4444] transition-colors opacity-0 group-hover:opacity-100"
+          title="Excluir Atividade"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
+      </div>
+    </motion.div>
+  );
+
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
@@ -663,7 +754,7 @@ export default function App() {
                 <CheckCircle className="text-black w-6 h-6" />
                 Suas Tarefas
               </h2>
-              <div className="flex items-center gap-2 mt-1">
+              <div className="flex items-center gap-2 mt-1 mb-2">
                 <p className="text-sm font-bold text-black">Sincronizado</p>
                 <div className="w-2 h-2 rounded-none bg-black"></div>
               </div>
@@ -722,55 +813,17 @@ export default function App() {
                 <p className="text-center text-sm px-4 font-bold uppercase">Todas as tarefas concluídas.</p>
               </motion.div>
             ) : (
-              tasks.filter(t => t.status !== 'completed').map(task => (
-                <motion.div 
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  key={task.id}
-                  className="p-4 bg-[#27272a] border-2 border-white shadow-[4px_4px_0px_white] transition-all duration-200 flex justify-between items-start group"
-                >
-                  <div className="flex items-start gap-3 cursor-pointer flex-1" onClick={() => toggleTaskCompletion(task.id)}>
-                    <div className="mt-0.5 w-5 h-5 flex items-center justify-center border-2 transition-colors border-white group-hover:bg-[#a3e635]">
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-sm text-white uppercase">
-                        {task.title}
-                      </h3>
-                      <div className="flex items-center gap-3 mt-2 text-xs font-bold text-zinc-400">
-                        <span className="flex items-center gap-1">
-                          <CalendarIcon className="w-3.5 h-3.5" />
-                          {task.date}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3.5 h-3.5" />
-                          {task.time}
-                        </span>
-                      </div>
-                      {task.notes && (
-                        <p className="mt-2 text-xs text-zinc-300 whitespace-pre-wrap leading-relaxed border-l-4 border-[#3b82f6] pl-2 font-mono">
-                          {task.notes}
-                        </p>
-                      )}
-                    </div>
+              getTasksByDate().map(({ dateKey, label, tasks: dateTasks }) => (
+                <div key={dateKey} className="flex flex-col gap-3">
+                  <div className="sticky top-0 bg-[#18181b] z-10 py-1">
+                    <h3 className={`text-xs font-black uppercase border-b-2 pb-1 ${
+                      label.includes('Atrasado') ? 'text-[#ef4444] border-[#ef4444]' : 'text-[#a3e635] border-[#a3e635]'
+                    }`}>
+                      {label}
+                    </h3>
                   </div>
-                  <div className="flex items-center gap-1 ml-2">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setEditingTask(task); }}
-                      className="p-2 text-zinc-400 hover:text-white border border-transparent hover:border-white hover:bg-[#3b82f6] transition-colors opacity-0 group-hover:opacity-100"
-                      title="Editar Atividade"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); promptDeleteTask(task.id); }}
-                      className="p-2 text-zinc-400 hover:text-white border border-transparent hover:border-white hover:bg-[#ef4444] transition-colors opacity-0 group-hover:opacity-100"
-                      title="Excluir Atividade"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </motion.div>
+                  {dateTasks.map(task => renderTask(task))}
+                </div>
               ))
             )}
           </AnimatePresence>
