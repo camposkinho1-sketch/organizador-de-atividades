@@ -1,21 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { X, Key, AlertCircle, CheckCircle } from 'lucide-react';
 import { motion } from 'motion/react';
+import { useSyncState } from '../lib/useSync';
 
 export const ApiSettingsModal = ({ onClose }: { onClose: () => void }) => {
   const [apiKey, setApiKey] = useState('');
+  const [syncedApiKey, setSyncedApiKey] = useSyncState<string>('custom_api_key', '', 'api_key_data');
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    const savedKey = localStorage.getItem('custom_api_key') || '';
-    setApiKey(savedKey);
-  }, []);
+    setApiKey(syncedApiKey || '');
+  }, [syncedApiKey]);
 
   const handleSave = () => {
     if (apiKey.trim()) {
-      localStorage.setItem('custom_api_key', apiKey.trim());
+      setSyncedApiKey(apiKey.trim());
     } else {
-      localStorage.removeItem('custom_api_key');
+      setSyncedApiKey('');
     }
     setSaved(true);
     setTimeout(() => {
@@ -57,7 +58,7 @@ export const ApiSettingsModal = ({ onClose }: { onClose: () => void }) => {
               onChange={(e) => setApiKey(e.target.value)}
               className="w-full bg-slate-50 border border-slate-300 text-slate-900 rounded-lg py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all placeholder:text-slate-400"
             />
-            <p className="text-xs text-slate-500 mt-1">Sua chave é salva apenas localmente no seu navegador para uso imediato no app.</p>
+            <p className="text-xs text-slate-500 mt-1">Sua chave é sincronizada de forma segura na nuvem, permitindo que você a utilize em todos os seus dispositivos.</p>
           </div>
         </div>
 

@@ -29,6 +29,7 @@ service cloud.firestore {
         (!('tasks_data' in data) || data.tasks_data is list) &&
         (!('schedule_data' in data) || data.schedule_data is list) &&
         (!('grades_data' in data) || data.grades_data is map) &&
+        (!('api_key_data' in data) || data.api_key_data is string) &&
         (!('updated_at' in data) || data.updated_at is timestamp)
       );
     }
@@ -51,7 +52,7 @@ service cloud.firestore {
       
       allow update: if isOwner(userId) && isValidUserData(incoming()) && (
         incoming().diff(existing()).affectedKeys().hasAny([
-          'tasks_data', 'schedule_data', 'grades_data', 'updated_at'
+          'tasks_data', 'schedule_data', 'grades_data', 'api_key_data', 'updated_at'
         ])
       );
       

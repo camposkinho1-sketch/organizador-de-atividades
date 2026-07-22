@@ -66,6 +66,7 @@ export default function App() {
   const [showDeleteAccountConfirm, setShowDeleteAccountConfirm] = useState(false);
   const [schedule, setSchedule] = useSyncState<DaySchedule[]>('guardiao_schedule', defaultSchedule, 'schedule_data');
   const [gradesConfig, setGradesConfig] = useSyncState<GradesConfig>('guardiao_grades', defaultGradesConfig, 'grades_data');
+  const [syncedApiKey] = useSyncState<string>('custom_api_key', '', 'api_key_data');
   const chatEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -301,9 +302,8 @@ export default function App() {
       playMessageSent();
 
       const requestHeaders: any = { 'Content-Type': 'application/json' };
-      const customApiKey = localStorage.getItem('custom_api_key');
-      if (customApiKey) {
-        requestHeaders['x-api-key'] = customApiKey;
+      if (syncedApiKey) {
+        requestHeaders['x-api-key'] = syncedApiKey;
       }
 
       let response = await fetch('/api/chat', {
@@ -338,9 +338,8 @@ export default function App() {
         
         // Send function results back to the model to get the final text response
         const requestHeaders: any = { 'Content-Type': 'application/json' };
-        const customApiKey = localStorage.getItem('custom_api_key');
-        if (customApiKey) {
-          requestHeaders['x-api-key'] = customApiKey;
+        if (syncedApiKey) {
+          requestHeaders['x-api-key'] = syncedApiKey;
         }
 
         const secondResponse = await fetch('/api/chat', {

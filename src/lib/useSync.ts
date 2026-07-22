@@ -6,7 +6,13 @@ import { doc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore';
 export function useSyncState<T>(key: string, initialValue: T, column: string) {
   const [value, setValue] = useState<T>(() => {
     const saved = localStorage.getItem(key);
-    return saved ? JSON.parse(saved) : initialValue;
+    if (!saved) return initialValue;
+    try {
+      return JSON.parse(saved);
+    } catch (e) {
+      // Handle legacy non-stringified values gracefully
+      return saved as unknown as T;
+    }
   });
   
   const [sessionUser, setSessionUser] = useState<User | null>(null);
