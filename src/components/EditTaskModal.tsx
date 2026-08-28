@@ -190,7 +190,7 @@ export function EditTaskModal({ task, onClose, onSave }: EditTaskModalProps) {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1 flex items-center gap-2">
                 <FileText className="w-4 h-4 text-slate-400" />
-                Título / Tarefa
+                Título / Evento
               </label>
               <input 
                 type="text" 
@@ -239,7 +239,7 @@ export function EditTaskModal({ task, onClose, onSave }: EditTaskModalProps) {
               <textarea 
                 value={notes}
                 onChange={e => setNotes(e.target.value)}
-                placeholder="Adicione detalhes extras para sua tarefa..."
+                placeholder="Adicione detalhes extras para sua evento..."
                 className="w-full border border-slate-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 resize-none h-24"
               />
             </div>

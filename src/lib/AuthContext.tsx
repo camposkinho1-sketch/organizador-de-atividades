@@ -81,7 +81,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signIn = async () => {
     try {
       const provider = new GoogleAuthProvider();
-      provider.addScope('https://www.googleapis.com/auth/tasks');
       provider.addScope('https://www.googleapis.com/auth/calendar.events');
       
       provider.setCustomParameters({

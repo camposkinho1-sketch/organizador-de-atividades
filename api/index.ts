@@ -9,25 +9,25 @@ const createTaskTool = {
   type: "function" as const,
   function: {
     name: "create_task",
-    description: "Cria uma nova tarefa no Google Tasks para o usuário.",
+    description: "Agenda um evento no Google Agenda para o usuário.",
     parameters: {
       type: "object",
       properties: {
         title: {
           type: "string",
-          description: "Título da tarefa, no formato '[MATÉRIA] - [NOME DA ATIVIDADE]'",
+          description: "Título da evento, no formato '[MATÉRIA] - [NOME DA ATIVIDADE]'",
         },
         date: {
           type: "string",
-          description: "Data da tarefa no formato YYYY-MM-DD",
+          description: "Data da evento no formato YYYY-MM-DD",
         },
         time: {
           type: "string",
-          description: "Horário da tarefa no formato HH:MM (ex: 20:00 ou 13:00)",
+          description: "Horário da evento no formato HH:MM (ex: 20:00 ou 13:00)",
         },
         notes: {
           type: "string",
-          description: "Detalhes adicionais ou complemento da tarefa, se fornecido.",
+          description: "Detalhes adicionais ou complemento da evento, se fornecido.",
         }
       },
       required: ["title", "date", "time"],
@@ -59,15 +59,15 @@ Aviso de Mudança: Sempre informe que os horários podem mudar.
 Se o usuário informar mudança de cronograma, priorize a nova informação.
 
 3. Protocolo de Atividades (Ação Automática com Horários de Entrega)
-Sempre que o usuário mencionar uma atividade, ANTES de criar a tarefa, pergunte qual unidade/semestre é a atividade (caso ele ainda não tenha informado). Não crie a tarefa até ter essa informação.
+Sempre que o usuário mencionar uma atividade, ANTES de agendar o evento, pergunte qual unidade/semestre é a atividade (caso ele ainda não tenha informado). Não agende o evento até ter essa informação.
 Após ele informar a unidade/semestre, você deve executar este fluxo obrigatoriamente:
 - Identificar a Próxima Aula: Veja na grade qual é o próximo dia que essa matéria acontece, a partir de hoje.
 - Cálculo da Data: Defina o prazo para 1 dia antes dessa aula.
 - Definição do Horário (Regra de Notificação):
-  - Se o dia anterior cair de Segunda a Sexta: Defina o horário da tarefa para as 20:00.
-  - Se o dia anterior cair no Sábado ou Domingo: Defina o horário da tarefa para as 13:00.
-- CRIAR TAREFA: VOCÊ DEVE OBRIGATORIAMENTE CHAMAR A FUNÇÃO \`create_task\` com o título "[MATÉRIA] - [NOME DA ATIVIDADE]". No campo notes (descrição), adicione a qual unidade/semestre a atividade pertence.
-- Confirmação: Informe ao usuário: "Tarefa salva para a [Unidade/Semestre]! Como sua próxima aula de [Matéria] é na [Dia], defini o lembrete no seu Google Agenda para [Data] às [Horário]."`;
+  - Se o dia anterior cair de Segunda a Sexta: Defina o horário do evento para as 20:00.
+  - Se o dia anterior cair no Sábado ou Domingo: Defina o horário do evento para as 13:00.
+- AGENDAR EVENTO: VOCÊ DEVE OBRIGATORIAMENTE CHAMAR A FUNÇÃO \`create_task\` com o título "[MATÉRIA] - [NOME DA ATIVIDADE]". No campo notes (descrição), adicione a qual unidade/semestre a atividade pertence.
+- Confirmação: Informe ao usuário: "Evento salvo para a [Unidade/Semestre]! Como sua próxima aula de [Matéria] é na [Dia], defini o lembrete no seu Google Agenda para [Data] às [Horário]."`;
 };
 
 app.post("/api/chat", async (req, res) => {

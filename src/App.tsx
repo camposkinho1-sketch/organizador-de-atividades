@@ -179,81 +179,14 @@ export default function App() {
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}${dif}${tzh}:${tzm}`;
   };
 
-  // Sync from Google Tasks on load or token change
-  useEffect(() => {
-    const fetchGoogleTasks = async () => {
-      if (!googleAccessToken) return;
-      try {
-        const listsRes = await fetch('https://tasks.googleapis.com/tasks/v1/users/@me/lists', {
-          headers: { Authorization: `Bearer ${googleAccessToken}` }
-        });
-        if (!listsRes.ok) return;
-        const listsData = await listsRes.json();
-        const taskListId = listsData.items[0]?.id;
-        if (!taskListId) return;
-
-        const tasksRes = await fetch(`https://tasks.googleapis.com/tasks/v1/lists/${taskListId}/tasks?showCompleted=true&showHidden=true`, {
-          headers: { Authorization: `Bearer ${googleAccessToken}` }
-        });
-        if (!tasksRes.ok) return;
-        const tasksData = await tasksRes.json();
-        const gTasks = tasksData.items || [];
-
-        setTasks(prev => prev.map(localTask => {
-          if (!localTask.googleTaskId) return localTask;
-          const remoteTask = gTasks.find((g: any) => g.id === localTask.googleTaskId);
-          if (remoteTask) {
-             const remoteCompleted = remoteTask.status === 'completed';
-             // Also could sync date/time from remote if it changed, but let's just sync completion for now,
-             // or sync title too.
-             const newStatus = (remoteCompleted && localTask.evidencePhotoBase64) ? 'completed' : 'pending';
-             
-             // If it was completed remotely but we reverted it to pending here (no photo), 
-             // ideally we'd uncheck it on Google Tasks to, but doing it in a fetch loop might be risky.
-             // We'll trust the local source of truth over the remote one for completion status if photo is missing.
-             if (localTask.status !== newStatus || localTask.title !== remoteTask.title) {
-                if (remoteCompleted && !localTask.evidencePhotoBase64 && localTask.googleTaskId && localTask.googleTaskListId) {
-                  // Revert remote completetion if missing photo locally
-                  updateGoogleTask(localTask.googleTaskId, localTask.googleTaskListId, { status: 'needsAction' });
-                }
-                return { ...localTask, status: newStatus, title: remoteTask.title || localTask.title };
-             }
-          }
-          return localTask;
-        }));
-      } catch (err) {
-        console.error("Error fetching google tasks:", err);
-      }
-    };
-    fetchGoogleTasks();
-  }, [googleAccessToken]);
-
-  const updateGoogleTask = async (taskId: string, listId: string, updates: any) => {
-    if (!googleAccessToken) return;
-    try {
-      await fetch(`https://tasks.googleapis.com/tasks/v1/lists/${listId}/tasks/${taskId}`, {
-        method: 'PATCH',
-        headers: { 
-          Authorization: `Bearer ${googleAccessToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(updates)
-      });
-    } catch (err) {
-      console.error("Failed to update google task:", err);
-    }
-  };
-
-  const syncToGoogleTasks = async (title: string, date: string, time: string, notes?: string) => {
+  // Sync to Google Calendar
+  const syncToGoogleCalendar = async (title: string, date: string, time: string, notes?: string) => {
     if (!googleAccessToken) return { success: false, message: 'Google desconectado' };
     
     try {
-      // 1. & 2. Google Tasks API não suporta horário (descarta e seta como Dia Inteiro).
-      // Por solicitação de funcionamento do tempo, ignoramos o Google Tasks e criamos APENAS no Google Calendar.
-      
       let googleEventId = undefined;
+
       const tzoString = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      
       const startDate = new Date(`${date}T${time}:00`);
       const endDate = new Date(startDate.getTime() + 30 * 60000);
       
@@ -269,24 +202,25 @@ export default function App() {
       const eventStartDue = formatRFC(startDate);
       const endDue = formatRFC(endDate);
 
+      // --- Sincronizar com Google Agenda ---
       const eventRes = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
         method: 'POST',
         headers: { 
-          Authorization: `Bearer ${googleAccessToken}`,
+           Authorization: `Bearer ${googleAccessToken}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          summary: `[Tarefa] ${title}`,
+          summary: title,
           description: `${notes || 'Agendado pelo Guardião Estudantil'}`,
           start: { dateTime: eventStartDue, timeZone: tzoString },
           end: { dateTime: endDue, timeZone: tzoString },
           reminders: { 
             useDefault: false, 
             overrides: [
-              { method: 'popup', minutes: 20 },
+              { method: 'popup', minutes: 10 },
               { method: 'popup', minutes: 0 }
             ] 
-          }
+           }
         })
       });
 
@@ -305,7 +239,7 @@ export default function App() {
       return { success: true, message: 'Sucesso', taskId: undefined, listId: undefined, eventId: googleEventId };
 
     } catch (error: any) {
-      console.error("syncToGoogleTasks error:", error);
+      console.error("syncToGoogleCalendar error:", error);
       return { success: false, message: error.message };
     }
   };
@@ -317,17 +251,15 @@ export default function App() {
     let googleSyncMsg = '';
     
     if (googleAccessToken) {
-      const result = await syncToGoogleTasks(args.title, args.date, args.time, args.notes);
+      const result = await syncToGoogleCalendar(args.title, args.date, args.time, args.notes);
       if (result.success) {
          googleSyncMsg = ' (Sincronizado com o Google Agenda)';
-         googleTaskId = result.taskId;
-         googleTaskListId = result.listId;
          googleEventId = result.eventId;
       } else {
          googleSyncMsg = ` (ATENÇÃO: Falha ao sincronizar: ${result.message})`;
       }
     } else {
-      googleSyncMsg = ' (Não sincronizado: Google Tasks desconectado)';
+      googleSyncMsg = ' (Não sincronizado: Google desconectado)';
     }
 
     const newTask: Task = {
@@ -344,7 +276,7 @@ export default function App() {
     setTasks(prev => [...prev, newTask]);
     playTaskAdded();
 
-    return { success: true, message: `Tarefa '${args.title}' agendada para ${args.date} às ${args.time}.${googleSyncMsg}` };
+    return { success: true, message: `Evento '${args.title}' agendado para ${args.date} às ${args.time}.${googleSyncMsg}` };
   };
 
   const sendMessage = async (e: React.FormEvent) => {
@@ -477,10 +409,6 @@ export default function App() {
     setTasks(prev => prev.map(t => 
       t.id === taskId ? { ...t, status: 'completed', evidencePhotoBase64 } : t
     ));
-
-    if (task.googleTaskId && task.googleTaskListId) {
-      updateGoogleTask(task.googleTaskId, task.googleTaskListId, { status: 'completed' });
-    }
     
     playTaskCompleted();
     setCompletingTask(null);
@@ -542,10 +470,6 @@ export default function App() {
     setTasks(prev => prev.map(t => 
       t.id === task.id ? { ...t, status: 'completed' } : t
     ));
-
-    if (task.googleTaskId && task.googleTaskListId) {
-      updateGoogleTask(task.googleTaskId, task.googleTaskListId, { status: 'completed' });
-    }
     
     playTaskCompleted();
   };
@@ -566,10 +490,6 @@ export default function App() {
       setTasks(prev => prev.map(t => 
         t.id === taskId ? { ...t, status: 'pending', evidencePhotoBase64: undefined } : t
       ));
-
-      if (task.googleTaskId && task.googleTaskListId) {
-        updateGoogleTask(task.googleTaskId, task.googleTaskListId, { status: 'needsAction' });
-      }
     }
   };
 
@@ -583,14 +503,6 @@ export default function App() {
     setTasks(prev => prev.filter(t => t.id !== taskId));
     
     if (task && googleAccessToken) {
-      // Attempt delete in Google Tasks
-      if (task.googleTaskId && task.googleTaskListId) {
-        fetch(`https://tasks.googleapis.com/tasks/v1/lists/${task.googleTaskListId}/tasks/${task.googleTaskId}`, {
-          method: 'DELETE',
-          headers: { Authorization: `Bearer ${googleAccessToken}` }
-        }).catch(err => console.error(err));
-      }
-
       // Attempt delete in Google Calendar
       if (task.googleEventId) {
         fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${task.googleEventId}`, {
@@ -607,10 +519,6 @@ export default function App() {
     setTasks(prev => prev.map(t => 
       t.id === taskId ? { ...t, status: 'pending' } : t
     ));
-
-    if (task.googleTaskId && task.googleTaskListId) {
-      updateGoogleTask(task.googleTaskId, task.googleTaskListId, { status: 'needsAction' });
-    }
   };
 
   const updateTaskPartial = (taskId: string, updates: Partial<Task>) => {
@@ -628,27 +536,10 @@ export default function App() {
 
     const taskDue = formatRFC3339Local(newDate, newTime);
 
-    if (task.googleTaskId && task.googleTaskListId) {
-      updateGoogleTask(task.googleTaskId, task.googleTaskListId, { 
-        title: newTitle, 
-        due: taskDue, 
-        notes: `⏰ Horário: ${newTime}\n${newNotes || 'Agendado pelo Guardião Estudantil'}`
-      });
-    }
-
     if (task.googleEventId && googleAccessToken) {
       const tzoString = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const startDate = new Date(`${newDate}T${newTime}:00`);
       const endDate = new Date(startDate.getTime() + 30 * 60000);
-      const pad = (n: number) => n < 10 ? '0' + n : n;
-      const tzo = -startDate.getTimezoneOffset();
-      const dif = tzo >= 0 ? '+' : '-';
-      const tzh = pad(Math.floor(Math.abs(tzo) / 60));
-      const tzm = pad(Math.abs(tzo) % 60);
-      const tzStringLocal = `${dif}${tzh}:${tzm}`;
-      
-      const eventStartDue = `${startDate.getFullYear()}-${pad(startDate.getMonth() + 1)}-${pad(startDate.getDate())}T${pad(startDate.getHours())}:${pad(startDate.getMinutes())}:${pad(startDate.getSeconds())}${tzStringLocal}`;
-      const endDue = `${endDate.getFullYear()}-${pad(endDate.getMonth() + 1)}-${pad(endDate.getDate())}T${pad(endDate.getHours())}:${pad(endDate.getMinutes())}:${pad(endDate.getSeconds())}${tzStringLocal}`;
       
       fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${task.googleEventId}`, {
         method: 'PATCH',
@@ -657,10 +548,10 @@ export default function App() {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          summary: `[Tarefa] ${newTitle}`,
+          summary: newTitle,
           description: `${newNotes || 'Agendado pelo Guardião Estudantil'}`,
-          start: { dateTime: eventStartDue, timeZone: tzoString },
-          end: { dateTime: endDue, timeZone: tzoString }
+          start: { dateTime: startDate.toISOString() },
+          end: { dateTime: endDate.toISOString() }
         })
       }).catch(err => console.error("Failed to update Google Calendar event:", err));
     }
@@ -752,7 +643,7 @@ export default function App() {
             <div>
               <h2 className="text-xl font-black text-black uppercase tracking-tight flex items-center gap-2">
                 <CheckCircle className="text-black w-6 h-6" />
-                Suas Tarefas
+                Suas Eventos
               </h2>
               <div className="flex items-center gap-2 mt-1 mb-2">
                 <p className="text-sm font-bold text-black">Sincronizado</p>
@@ -810,7 +701,7 @@ export default function App() {
                 className="h-full flex flex-col items-center justify-center text-zinc-500 gap-3"
               >
                 <CheckCircle className="w-12 h-12 stroke-2 text-zinc-600" />
-                <p className="text-center text-sm px-4 font-bold uppercase">Todas as tarefas concluídas.</p>
+                <p className="text-center text-sm px-4 font-bold uppercase">Todas as eventos concluídas.</p>
               </motion.div>
             ) : (
               getTasksByDate().map(({ dateKey, label, tasks: dateTasks }) => (
@@ -948,7 +839,7 @@ export default function App() {
             
             <div className="bg-[#a3e635] border-2 border-white p-4 flex gap-3 text-black shadow-[4px_4px_0px_white]">
               <AlertCircle className="w-5 h-5 flex-shrink-0 text-black" />
-              <p className="font-bold">Simulador Ativado: Crie tarefas (ex: "Tenho atividade de Química") e veja a IA agendar automaticamente na sua barra lateral.</p>
+              <p className="font-bold">Simulador Ativado: Crie eventos (ex: "Tenho atividade de Química") e veja a IA agendar automaticamente na sua barra lateral.</p>
             </div>
 
             {messages.map((message) => (
@@ -1126,7 +1017,7 @@ export default function App() {
                 <ShieldAlert className="w-8 h-8" />
               </div>
               <h3 className="text-xl font-black text-white uppercase mb-2">Excluir Conta</h3>
-              <p className="text-zinc-400 mb-6 font-mono text-sm">Atenção! Esta ação é <span className="text-[#ef4444] font-bold">irreversível</span>. Todos os seus dados, tarefas e informações associadas a sua conta serão permanentemente excluídos. Tem certeza que deseja prosseguir?</p>
+              <p className="text-zinc-400 mb-6 font-mono text-sm">Atenção! Esta ação é <span className="text-[#ef4444] font-bold">irreversível</span>. Todos os seus dados, eventos e informações associadas a sua conta serão permanentemente excluídos. Tem certeza que deseja prosseguir?</p>
               <div className="flex flex-col gap-3 sm:gap-4">
                 <button
                   onClick={async () => {
